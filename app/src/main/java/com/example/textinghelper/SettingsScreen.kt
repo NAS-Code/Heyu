@@ -11,6 +11,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -59,8 +61,9 @@ fun SettingsScreen() {
             Switch(vary, { vary = it; ctx.prefs().edit().putBoolean("vary", it).apply() })
         }
         HorizontalDivider()
-        SectionTitle("Claude API Key")
+        SectionTitle("Claude Settings")
         ApiKeySection()
+        LatestSuggestions()
         HorizontalDivider()
         SectionTitle("Text Style Settings")
         TextStyleSettings()
@@ -105,6 +108,63 @@ fun SettingsScreen() {
 @Composable
 private fun SectionTitle(text: String) =
     Text(text, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+
+/** Collapsible: each person's most recent suggestions, Claude's recap, and the exact prompt sent. */
+@Composable
+private fun LatestSuggestions() {
+    val ctx = LocalContext.current
+    var expanded by remember { mutableStateOf(false) }
+    var runs by remember { mutableStateOf<List<LastRun>?>(null) }
+    var openId by remember { mutableStateOf<Long?>(null) }
+    var prompt by remember { mutableStateOf<Pair<String, String>?>(null) } // name to prompt text
+    LaunchedEffect(expanded) { if (expanded) runs = withContext(Dispatchers.IO) { loadLastRuns(ctx) } }
+
+    Row(Modifier.fillMaxWidth().clickable { expanded = !expanded }.padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text("Latest suggestions")
+            Text("Each person's last suggested texts, Claude's recap, and the prompt it was sent.",
+                style = MaterialTheme.typography.bodySmall)
+        }
+        Text(if (expanded) "▲" else "▼")
+    }
+    if (!expanded) return
+    val list = runs
+    when {
+        list == null -> Text("Loading…", style = MaterialTheme.typography.bodySmall)
+        list.isEmpty() -> Text("None yet. They appear after the next check with an API key.", style = MaterialTheme.typography.bodySmall)
+        else -> list.forEach { run ->
+            OutlinedCard(Modifier.fillMaxWidth().clickable { openId = if (openId == run.contactId) null else run.contactId }) {
+                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(run.name, Modifier.weight(1f), fontWeight = FontWeight.Bold)
+                        Text(fmt(run.time), style = MaterialTheme.typography.bodySmall)
+                    }
+                    if (openId == run.contactId) {
+                        Text("Suggested texts", style = MaterialTheme.typography.labelMedium)
+                        if (run.suggestions.isEmpty()) Text("(none)", style = MaterialTheme.typography.bodySmall)
+                        run.suggestions.forEach { Text("“${it.text}” · ${it.angle}", style = MaterialTheme.typography.bodySmall) }
+                        Text("Claude's recap", style = MaterialTheme.typography.labelMedium)
+                        Text(run.recap.ifBlank { "(none)" }, style = MaterialTheme.typography.bodySmall)
+                        val file = promptFile(ctx, run.contactId)
+                        if (file.exists()) TextButton(onClick = { prompt = run.name to file.readText() }) { Text("View prompt") }
+                    } else {
+                        Text(run.suggestions.firstOrNull()?.let { "“${it.text}”" } ?: "(no suggestion)",
+                            style = MaterialTheme.typography.bodySmall, maxLines = 1)
+                    }
+                }
+            }
+        }
+    }
+    prompt?.let { (name, text) ->
+        AlertDialog(
+            onDismissRequest = { prompt = null },
+            title = { Text("Prompt for $name") },
+            text = { SelectionContainer(Modifier.verticalScroll(rememberScrollState())) { Text(text, style = MaterialTheme.typography.bodySmall) } },
+            confirmButton = { TextButton(onClick = { prompt = null }) { Text("Close") } },
+        )
+    }
+}
 
 /** Collapsed by default; Save and Remove each ask for confirmation so the key isn't changed by accident. */
 @Composable

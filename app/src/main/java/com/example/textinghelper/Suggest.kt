@@ -253,7 +253,30 @@ fun callClaude(ctx: Context, system: String, content: JSONArray, schema: JSONObj
 }
 
 /** Where the latest prompt for a contact is saved, for the "View prompt" button. */
-fun promptFile(ctx: Context, contactId: Long) = java.io.File(java.io.File(ctx.filesDir, "prompts").apply { mkdirs() }, "$contactId.txt")
+fun promptFile(ctx: Context, contactId: Long) = java.io.File(promptDir(ctx), "$contactId.txt")
+private fun promptDir(ctx: Context) = java.io.File(ctx.filesDir, "prompts").apply { mkdirs() }
+
+/** The latest suggestion run for one person, for Settings → Claude Settings → Latest suggestions. */
+data class LastRun(val contactId: Long, val name: String, val time: Long, val recap: String, val suggestions: List<Suggestion>)
+
+private fun saveLastRun(ctx: Context, run: LastRun) = try {
+    java.io.File(promptDir(ctx), "${run.contactId}.json").writeText(JSONObject()
+        .put("name", run.name).put("time", run.time).put("recap", run.recap)
+        .put("suggestions", JSONArray(run.suggestions.map { JSONObject().put("text", it.text).put("angle", it.angle) }))
+        .toString())
+} catch (_: Exception) {}
+
+/** Everyone's latest run, newest first. */
+fun loadLastRuns(ctx: Context): List<LastRun> = promptDir(ctx).listFiles { f -> f.extension == "json" }.orEmpty().mapNotNull { f ->
+    try {
+        val o = JSONObject(f.readText())
+        val arr = o.getJSONArray("suggestions")
+        LastRun(f.nameWithoutExtension.toLong(), o.getString("name"), o.getLong("time"), o.optString("recap"),
+            (0 until arr.length()).map { arr.getJSONObject(it).let { s -> Suggestion(s.getString("text"), s.optString("angle")) } })
+    } catch (e: Exception) {
+        null
+    }
+}.sortedByDescending { it.time }
 
 /** Drafts suggestions for one reminder. Throws on failure; the caller still sends the reminder. */
 fun suggest(ctx: Context, r: Reminder, threadIds: List<Long>): SuggestResult {
@@ -287,5 +310,7 @@ fun suggest(ctx: Context, r: Reminder, threadIds: List<Long>): SuggestResult {
         all = parseSuggestions(reply.text)
         kept = all.filter { bannedIn(it.text, profile.bannedList) == null }
     }
-    return SuggestResult(kept, parseRecap(reply.text), tokensIn, tokensOut, images)
+    val recap = parseRecap(reply.text)
+    saveLastRun(ctx, LastRun(r.setting.contactId, r.setting.name, now, recap, kept))
+    return SuggestResult(kept, recap, tokensIn, tokensOut, images)
 }
