@@ -26,6 +26,8 @@ val Context.reminderHour get() = prefs().getInt("hour", 18)
 val Context.reminderMinute get() = prefs().getInt("minute", 0)
 val Context.dailyCap get() = prefs().getInt("cap", 3)
 val Context.varyTiming get() = prefs().getBoolean("vary", true)
+val Context.showRecap get() = prefs().getBoolean("showRecap", true)
+val Context.showPromptButton get() = prefs().getBoolean("showPrompt", true)
 
 /** Reads messages, picks who's due, posts notifications. Returns a summary for the "Run check now" button. */
 suspend fun runCheck(ctx: Context, ignoreRecent: Boolean = false): String = withContext(Dispatchers.IO) {
@@ -48,7 +50,7 @@ suspend fun runCheck(ctx: Context, ignoreRecent: Boolean = false): String = with
         }
         if (result != null && result.suggestions.isEmpty()) aiErrors += "${r.setting.name}: couldn't parse reply"
         result?.let { tokensIn += it.inputTokens; tokensOut += it.outputTokens }
-        notify(ctx, r, result?.suggestions.orEmpty())
+        notify(ctx, r, result?.suggestions.orEmpty(), result?.recap.orEmpty())
         dao.save(r.setting.copy(lastReminded = now))
         dao.log(ReminderLog(contactId = r.setting.contactId, time = now, reason = if (r.unreplied) "unreplied" else "due",
             inputTokens = result?.inputTokens, outputTokens = result?.outputTokens, images = result?.images))
@@ -90,7 +92,7 @@ fun reasonText(r: Reminder) = when {
     else -> "Last texted ${r.days} days ago · ${tierLabel(r.setting.frequencyDays)}"
 }
 
-fun notify(ctx: Context, r: Reminder, suggestions: List<Suggestion>) {
+fun notify(ctx: Context, r: Reminder, suggestions: List<Suggestion>, recap: String = "") {
     val nm = ctx.getSystemService(NotificationManager::class.java)
     // A channel's sound/vibration settings are fixed once created, so turning vibration on needs a new
     // channel id. The old one ("reminders") had vibration off.
@@ -117,6 +119,7 @@ fun notify(ctx: Context, r: Reminder, suggestions: List<Suggestion>) {
         .putExtra("title", title).putExtra("reason", text)
         .putExtra("texts", suggestions.map { it.text }.toTypedArray())
         .putExtra("angles", suggestions.map { it.angle }.toTypedArray())
+        .putExtra("recap", recap)
     val openPi = PendingIntent.getActivity(ctx, 0, open, flags)
 
     val n = Notification.Builder(ctx, CHANNEL)

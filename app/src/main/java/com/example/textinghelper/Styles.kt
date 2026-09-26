@@ -18,12 +18,14 @@ private const val MY_MESSAGES_PER_CHAT = 250
 
 data class StyleProfile(
     val samples: List<Long> = emptyList(), // contact ids whose chats it's built from
-    val notes: String = "", // optional: my own description
+    val notes: String = "", // optional: my own rules/description, treated as hard rules
+    val banned: String = "", // optional: comma-separated words/phrases never to use (enforced in code)
     val description: String = "", // Claude's analysis (editable)
     val examples: List<String> = emptyList(), // real texts I've sent, picked by Claude
     val builtAt: Long? = null,
 ) {
-    val isEmpty get() = notes.isBlank() && description.isBlank() && examples.isEmpty()
+    val isEmpty get() = notes.isBlank() && banned.isBlank() && description.isBlank() && examples.isEmpty()
+    val bannedList get() = banned.split(',').map { it.trim() }.filter { it.isNotEmpty() }
 }
 
 // ---- Storage: one small JSON blob per style in SharedPreferences ----
@@ -34,6 +36,7 @@ fun Context.loadStyle(s: Style): StyleProfile = try {
     StyleProfile(
         samples = o.optJSONArray("samples")?.let { a -> (0 until a.length()).map { a.getLong(it) } }.orEmpty(),
         notes = o.optString("notes"),
+        banned = o.optString("banned"),
         description = o.optString("description"),
         examples = o.optJSONArray("examples")?.strings().orEmpty(),
         builtAt = if (o.has("builtAt")) o.getLong("builtAt") else null,
@@ -46,6 +49,7 @@ fun Context.saveStyle(s: Style, p: StyleProfile) {
     val o = JSONObject()
         .put("samples", JSONArray(p.samples))
         .put("notes", p.notes)
+        .put("banned", p.banned)
         .put("description", p.description)
         .put("examples", JSONArray(p.examples))
     p.builtAt?.let { o.put("builtAt", it) }
@@ -54,25 +58,29 @@ fun Context.saveStyle(s: Style, p: StyleProfile) {
 
 // ---- Prompt section ----
 
-/** The MY TEXTING STYLE section, or null if there's nothing to say. Pure, so it's unit tested. */
+/**
+ * The MY TEXTING STYLE section (description + examples), or null if there's nothing. Notes and banned words
+ * go in the system prompt as rules instead (see systemPrompt). Examples with a banned word are left out.
+ * Pure, so it's unit tested.
+ */
 fun styleSection(style: Style, p: StyleProfile): String? {
-    if (p.isEmpty) return null
+    val examples = p.examples.filter { bannedIn(it, p.bannedList) == null }
+    if (p.description.isBlank() && examples.isEmpty()) return null
     return buildString {
         appendLine("MY TEXTING STYLE WITH ${style.label.uppercase()} (baseline):")
-        if (p.notes.isNotBlank()) appendLine("My own notes: ${p.notes.trim()}")
         if (p.description.isNotBlank()) appendLine("How I text: ${p.description.trim()}")
-        if (p.examples.isNotEmpty()) {
+        if (examples.isNotEmpty()) {
             appendLine("Real texts I've sent:")
-            p.examples.forEach { appendLine("- $it") }
+            examples.forEach { appendLine("- $it") }
         }
     }
 }
 
-/** The contact's style, falling back to Friends if theirs hasn't been set up. */
-fun Context.styleSectionFor(key: String?): String? {
+/** The contact's style profile, falling back to Friends if theirs hasn't been set up. */
+fun Context.styleFor(key: String?): Pair<Style, StyleProfile> {
     val style = styleOf(key)
-    styleSection(style, loadStyle(style))?.let { return it }
-    return if (style != Style.FRIENDS) styleSection(Style.FRIENDS, loadStyle(Style.FRIENDS)) else null
+    val p = loadStyle(style)
+    return if (p.isEmpty && style != Style.FRIENDS) Style.FRIENDS to loadStyle(Style.FRIENDS) else style to p
 }
 
 // ---- Building a profile ----
@@ -116,7 +124,11 @@ suspend fun buildStyle(ctx: Context, style: Style, contacts: Map<Long, ContactSt
     val all = chats.flatten()
     if (all.size < 20) error("only ${all.size} usable messages from these chats; pick contacts you text more")
 
-    val text = chats.mapIndexed { i, msgs -> "Chat ${i + 1}:\n" + msgs.joinToString("\n") }.joinToString("\n\n")
+    val rules = (p.notes.lines().map { it.trim() }.filter { it.isNotEmpty() } +
+        (if (p.bannedList.isEmpty()) emptyList() else listOf("Never use: ${p.bannedList.joinToString(", ")}")))
+    val text = (if (rules.isEmpty()) "" else "The person's own rules for this style. Your description and examples must follow them:\n" +
+        rules.joinToString("\n") { "- $it" } + "\n\n") +
+        chats.mapIndexed { i, msgs -> "Chat ${i + 1}:\n" + msgs.joinToString("\n") }.joinToString("\n\n")
     val reply = callClaude(ctx, STYLE_SYSTEM, JSONArray().put(JSONObject().put("type", "text").put("text", text)), STYLE_SCHEMA, maxTokens = 8000)
     val o = try {
         JSONObject(reply.text.substring(reply.text.indexOf('{'), reply.text.lastIndexOf('}') + 1))
@@ -124,6 +136,7 @@ suspend fun buildStyle(ctx: Context, style: Style, contacts: Map<Long, ContactSt
         error("couldn't parse Claude's reply")
     }
     val examples = verbatimOnly((0 until (o.optJSONArray("examples")?.length() ?: 0)).map { o.getJSONArray("examples").getString(it) }, all)
+        .filter { bannedIn(it, p.bannedList) == null }
     ctx.saveStyle(style, p.copy(description = o.optString("description").trim(), examples = examples, builtAt = System.currentTimeMillis()))
 
     // Logged with the reminders so it shows in Data → AI usage. contactId -1 = not a person.

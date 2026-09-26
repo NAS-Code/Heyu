@@ -79,7 +79,11 @@ private fun StyleCard(style: Style, contacts: List<ContactStats>) {
 
             OutlinedTextField(p.notes, { update(p.copy(notes = it)) }, Modifier.fillMaxWidth(),
                 label = { Text("Your own notes (optional)") },
-                placeholder = { Text("e.g. no emojis, full sentences, always sign off with love") })
+                placeholder = { Text("e.g. no emojis, full sentences, always sign off with love") },
+                supportingText = { Text("Treated as rules Claude must follow. Rebuild so the examples follow them too.") })
+            OutlinedTextField(p.banned, { update(p.copy(banned = it)) }, Modifier.fillMaxWidth(),
+                label = { Text("Never use (optional)") }, placeholder = { Text("e.g. yo, bro, lol") }, singleLine = true,
+                supportingText = { Text("Comma-separated. Enforced: any suggestion using one is thrown out and retried.") })
 
             Row(verticalAlignment = Alignment.CenterVertically) {
             Button(enabled = p.samples.isNotEmpty() && !building, onClick = {

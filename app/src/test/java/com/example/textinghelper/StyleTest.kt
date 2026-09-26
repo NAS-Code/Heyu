@@ -24,10 +24,13 @@ class StyleTest {
 
     @Test fun sectionIncludesOnlyWhatExists() {
         assertNull(styleSection(Style.FRIENDS, StyleProfile()))
-        val notesOnly = styleSection(Style.FAMILY, StyleProfile(notes = "no emojis"))!!
-        assertTrue("WITH FAMILY" in notesOnly && "My own notes: no emojis" in notesOnly && "How I text" !in notesOnly)
+        // Notes are rules now (system prompt), not part of this section.
+        assertNull(styleSection(Style.FAMILY, StyleProfile(notes = "no emojis")))
         val built = styleSection(Style.FRIENDS, StyleProfile(description = "lowercase", examples = listOf("yo", "bet")))!!
-        assertTrue("How I text: lowercase" in built && "- yo" in built && "- bet" in built && "My own notes" !in built)
+        assertTrue("WITH FRIENDS" in built && "How I text: lowercase" in built && "- yo" in built && "- bet" in built)
+        // An example with a banned word is left out.
+        val filtered = styleSection(Style.FRIENDS, StyleProfile(examples = listOf("yo whats good", "bet"), banned = "yo"))!!
+        assertTrue("yo whats good" !in filtered && "- bet" in filtered)
     }
 
     @Test fun promptPutsStyleFirst() {

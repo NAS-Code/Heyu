@@ -66,11 +66,28 @@ fun SettingsScreen() {
         TextStyleSettings()
         HorizontalDivider()
         SectionTitle("Testing Settings")
+        var recapOn by remember { mutableStateOf(ctx.showRecap) }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Show Claude's recap")
+                Text("On the suggestions screen: what Claude thinks has happened and what's still open.", style = MaterialTheme.typography.bodySmall)
+            }
+            Switch(recapOn, { recapOn = it; ctx.prefs().edit().putBoolean("showRecap", it).apply() })
+        }
+        var promptOn by remember { mutableStateOf(ctx.showPromptButton) }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Show \"View prompt\" button")
+                Text("On the suggestions screen: the exact text Claude was sent.", style = MaterialTheme.typography.bodySmall)
+            }
+            Switch(promptOn, { promptOn = it; ctx.prefs().edit().putBoolean("showPrompt", it).apply() })
+        }
         OutlinedButton(onClick = {
             // Fake contact (id -1): Snooze/Done do nothing, Text opens Messages with no recipient.
             val fake = ContactSetting(-1, "", "Test Person", 7)
             notify(ctx, Reminder(fake, unreplied = false, days = 9),
-                listOf(Suggestion("this is what a suggested text will look like", "check-in")))
+                listOf(Suggestion("this is what a suggested text will look like", "check-in")),
+                "This is where Claude's recap of the conversation appears.")
         }) { Text("Send test notification") }
         Button(enabled = !running, onClick = {
             running = true
