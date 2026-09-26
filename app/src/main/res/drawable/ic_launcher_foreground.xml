@@ -1,27 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Heyu icon: an hourglass whose top and bottom are chat bubbles, tails meeting at the neck.
-     108x108 adaptive-icon canvas; everything sits inside the 66dp safe circle so no launcher shape clips it.
-     Text lines sag into the neck up top and bulge out of it below, like draining sand. They are holes (evenOdd) so the same drawing works as the one-color themed icon. -->
+     Text lines flow through it: in the top bubble their right ends hook down into the neck, in the bottom
+     bubble their left ends hook up out of it (the top shapes rotated 180 degrees).
+     Lines are holes (evenOdd) so the same drawing works as the one-color themed icon.
+     108x108 adaptive-icon canvas; everything sits inside the 66dp safe circle. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Hourglass frame: top and bottom bars -->
     <path android:fillColor="#FFFFFF" android:pathData="M37.5,27h33a1.5,1.5 0,0 1,0 3h-33a1.5,1.5 0,0 1,0 -3z" />
     <path android:fillColor="#FFFFFF" android:pathData="M37.5,78h33a1.5,1.5 0,0 1,0 3h-33a1.5,1.5 0,0 1,0 -3z" />
-    <!-- Top bubble, tail pointing down into the neck -->
     <path
         android:fillColor="#FFFFFF"
         android:fillType="evenOdd"
         android:pathData="M44,32H64A6,6 0,0 1,70 38V42A6,6 0,0 1,64 48H59L54,54L49,48H44A6,6 0,0 1,38 42V38A6,6 0,0 1,44 32Z
-            M44,36.25Q54,42.75 64,36.25L64,38.75Q54,45.25 44,38.75Z
-            M47,40.75Q54,50.75 61,40.75L61,43.25Q54,53.25 47,43.25Z" />
-    <!-- Bottom bubble, tail pointing up to meet it -->
+            M44.00,38.50L46.50,38.50L49.00,38.50L51.50,38.50L54.00,38.50L56.50,38.50L58.99,38.50L59.71,38.53L60.29,38.60L60.73,38.70L61.03,38.83L61.20,38.94L61.28,39.02L61.32,39.10L61.35,39.24L61.34,39.48L61.27,39.85L61.10,40.32L60.83,40.90L60.46,41.55L59.96,42.31A1.25,1.25 0,0 1,62.04,43.69L62.58,42.86L63.05,42.05L63.41,41.27L63.67,40.52L63.82,39.77L63.84,39.02L63.68,38.28L63.33,37.59L62.82,37.03L62.19,36.61L61.49,36.32L60.73,36.14L59.90,36.03L59.01,36.00L56.50,36.00L54.00,36.00L51.50,36.00L49.00,36.00L46.50,36.00L44.00,36.00A1.25,1.25 0,0 1,44.00,38.50Z
+            M44.00,43.00L45.33,43.00L46.67,43.00L48.00,43.00L49.33,43.00L50.67,43.00L51.98,43.00L52.54,43.03L52.97,43.11L53.31,43.23L53.58,43.37L53.78,43.54L53.95,43.76L54.09,44.04L54.21,44.41L54.29,44.88L54.32,45.45L54.29,46.12L54.19,46.88L54.03,47.73L53.79,48.70A1.25,1.25 0,0 1,56.21,49.30L56.47,48.27L56.66,47.28L56.78,46.34L56.82,45.45L56.78,44.61L56.64,43.82L56.41,43.08L56.05,42.41L55.58,41.81L55.00,41.31L54.33,40.94L53.60,40.69L52.82,40.55L52.02,40.50L50.67,40.50L49.33,40.50L48.00,40.50L46.67,40.50L45.33,40.50L44.00,40.50A1.25,1.25 0,0 1,44.00,43.00Z" />
     <path
         android:fillColor="#FFFFFF"
         android:fillType="evenOdd"
         android:pathData="M44,60H49L54,54L59,60H64A6,6 0,0 1,70 66V70A6,6 0,0 1,64 76H44A6,6 0,0 1,38 70V66A6,6 0,0 1,44 60Z
-            M47,64.75Q54,54.75 61,64.75L61,67.25Q54,57.25 47,67.25Z
-            M44,69.25Q54,62.75 64,69.25L64,71.75Q54,65.25 44,71.75Z" />
+            M51.79,58.70L51.53,59.73L51.34,60.72L51.22,61.66L51.18,62.55L51.22,63.39L51.36,64.18L51.59,64.92L51.95,65.59L52.42,66.19L53.00,66.69L53.67,67.06L54.40,67.31L55.18,67.45L55.98,67.50L57.33,67.50L58.67,67.50L60.00,67.50L61.33,67.50L62.67,67.50L64.00,67.50A1.25,1.25 0,0 1,64.00,65.00L62.67,65.00L61.33,65.00L60.00,65.00L58.67,65.00L57.33,65.00L56.02,65.00L55.46,64.97L55.03,64.89L54.69,64.77L54.42,64.63L54.22,64.46L54.05,64.24L53.91,63.96L53.79,63.59L53.71,63.12L53.68,62.55L53.71,61.88L53.81,61.12L53.97,60.27L54.21,59.30A1.25,1.25 0,0 1,51.79,58.70Z
+            M45.96,64.31L45.42,65.14L44.95,65.95L44.59,66.73L44.33,67.48L44.18,68.23L44.16,68.98L44.32,69.72L44.67,70.41L45.18,70.97L45.81,71.39L46.51,71.68L47.27,71.86L48.10,71.97L48.99,72.00L51.50,72.00L54.00,72.00L56.50,72.00L59.00,72.00L61.50,72.00L64.00,72.00A1.25,1.25 0,0 1,64.00,69.50L61.50,69.50L59.00,69.50L56.50,69.50L54.00,69.50L51.50,69.50L49.01,69.50L48.29,69.47L47.71,69.40L47.27,69.30L46.97,69.17L46.80,69.06L46.72,68.98L46.68,68.90L46.65,68.76L46.66,68.52L46.73,68.15L46.90,67.68L47.17,67.10L47.54,66.45L48.04,65.69A1.25,1.25 0,0 1,45.96,64.31Z" />
 </vector>
