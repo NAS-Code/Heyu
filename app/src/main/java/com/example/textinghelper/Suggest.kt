@@ -286,6 +286,11 @@ fun suggest(ctx: Context, r: Reminder, threadIds: List<Long>): SuggestResult {
     val system = systemPrompt(profile.notes, profile.bannedList)
     val prompt = buildPrompt(lines, r.setting.name, r.unreplied, now, styleSection(style, profile))
     val userContent = ctx.userContent(prompt, lines)
+    // Repeat the rules last: the model weighs the end of the prompt most.
+    val rules = profile.notes.lines().map { it.trim() }.filter { it.isNotEmpty() }
+    if (rules.isNotEmpty() || profile.bannedList.isNotEmpty()) userContent.put(JSONObject().put("type", "text").put("text",
+        "Before answering, check every suggestion against the USER'S RULES" +
+            (if (profile.bannedList.isEmpty()) "." else ", and never use: ${profile.bannedList.joinToString(", ")}.")))
     val images = (0 until userContent.length()).count { userContent.getJSONObject(it).optString("type") == "image" }
     try {
         promptFile(ctx, r.setting.contactId).writeText("=== SYSTEM ===\n$system\n\n=== USER ===\n" +

@@ -38,6 +38,15 @@ class StyleTest {
         assertTrue(p.indexOf("MY TEXTING STYLE") in 0 until p.indexOf("RECENT CONVERSATION"))
     }
 
+    @Test fun notesBanWordsOutright() {
+        assertEquals(listOf("yo"), bannedFromNotes("dont use yo"))
+        assertEquals(listOf("yo"), bannedFromNotes("don't use \"yo\""))
+        assertEquals(listOf("no worries", "bro"), bannedFromNotes("Never say “no worries”. Also do not use bro, ok"))
+        assertEquals(emptyList<String>(), bannedFromNotes("keep it short and lowercase"))
+        // Notes and the Never use field combine.
+        assertEquals(listOf("lol", "yo"), StyleProfile(notes = "dont use yo", banned = "lol").bannedList)
+    }
+
     @Test fun unknownStyleIsFriends() {
         assertEquals(Style.FRIENDS, styleOf(null))
         assertEquals(Style.FAMILY, styleOf("family"))

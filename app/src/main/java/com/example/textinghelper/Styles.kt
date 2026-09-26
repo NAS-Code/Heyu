@@ -25,8 +25,17 @@ data class StyleProfile(
     val builtAt: Long? = null,
 ) {
     val isEmpty get() = notes.isBlank() && banned.isBlank() && description.isBlank() && examples.isEmpty()
-    val bannedList get() = banned.split(',').map { it.trim() }.filter { it.isNotEmpty() }
+    /** Never-use field plus words banned in the notes (e.g. "don't use yo"). All enforced in code. */
+    val bannedList get() = (banned.split(',').map { it.trim() }.filter { it.isNotEmpty() } + bannedFromNotes(notes)).distinct()
 }
+
+// "don't use yo", "never say \"no worries\"", "do not write 'bro'": the quoted phrase, or one unquoted word.
+private val BAN_IN_NOTES = Regex(
+    """(?i)\b(?:don'?t|don’t|do not|never|no)\s+(?:use|say|write|type)\s+(?:["“'‘]([^"”'’\n]{1,40})["”'’]|([\p{L}\p{N}]+))""")
+
+/** Words/phrases the notes ban outright, so they're enforced rather than just requested. Pure, so it's unit tested. */
+fun bannedFromNotes(notes: String): List<String> =
+    BAN_IN_NOTES.findAll(notes).map { (it.groupValues[1].ifEmpty { it.groupValues[2] }).trim() }.filter { it.isNotEmpty() }.toList()
 
 // ---- Storage: one small JSON blob per style in SharedPreferences ----
 
