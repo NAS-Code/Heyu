@@ -45,18 +45,18 @@ fun loadCachedDiagnostic(ctx: Context): Diagnostic? = try {
     null
 }
 
-/** Reads all messages (a few seconds) and saves the result for next startup. */
-fun readAndCacheDiagnostic(ctx: Context): Diagnostic = readDiagnostic(ctx).also { d ->
-    try { java.io.ObjectOutputStream(ctx.cacheFile().outputStream()).use { it.writeObject(d) } } catch (_: Exception) {}
-}
-
 private fun Context.query(uri: String, cols: Array<String>, where: String? = null, sort: String? = null, each: (Cursor) -> Unit) {
     contentResolver.query(Uri.parse(uri), cols, where, null, sort)?.use { c -> while (c.moveToNext()) each(c) }
 }
 
 private class Msg(val threadId: Long, val date: Long, val fromMe: Boolean)
 
-fun readDiagnostic(ctx: Context): Diagnostic {
+/** Reads all messages (a few seconds) and saves the result for next startup (see loadCachedDiagnostic). */
+fun readDiagnostic(ctx: Context): Diagnostic = scanMessages(ctx).also { d ->
+    try { java.io.ObjectOutputStream(ctx.cacheFile().outputStream()).use { it.writeObject(d) } } catch (_: Exception) {}
+}
+
+private fun scanMessages(ctx: Context): Diagnostic {
     // Canonical addresses: id -> phone number. Threads reference these by id.
     val canonical = HashMap<String, String>()
     ctx.query("content://mms-sms/canonical-addresses", arrayOf("_id", "address")) {

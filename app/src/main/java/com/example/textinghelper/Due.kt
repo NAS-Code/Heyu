@@ -28,7 +28,7 @@ fun findDue(
         if ((s.snoozedUntil ?: 0) > now) continue
         val st = stats[s.contactId]
         val handled = s.handledAt ?: 0
-        val lastOut = maxOf(st?.lastOutgoing ?: 0, handled) // 0 = never
+        val lastOut = lastOut(s, st) // 0 = never
         val remindedAt = s.lastReminded ?: 0
         // No repeat within 3 days, or within the frequency if that's shorter (e.g. a 1-day custom tier).
         val recentlyReminded = !ignoreRecent && now - remindedAt < minOf(3, freq) * DAY

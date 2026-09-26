@@ -68,7 +68,7 @@ Give 2 to 3 options, each with a different angle. Return ONLY JSON:
 
 /** SYSTEM plus the user's own rules for this style, stated as hard rules. Pure, so it's unit tested. */
 fun systemPrompt(notes: String, banned: List<String>): String {
-    val rules = notes.lines().map { it.trim() }.filter { it.isNotEmpty() } +
+    val rules = StyleProfile(notes = notes).rules +
         (if (banned.isEmpty()) emptyList() else listOf("Never use these words or phrases: ${banned.joinToString(", ")}"))
     if (rules.isEmpty()) return SYSTEM
     return SYSTEM + "\n\nUSER'S RULES (always follow; they override everything else, including how I've texted before):\n" +
@@ -287,8 +287,7 @@ fun suggest(ctx: Context, r: Reminder, threadIds: List<Long>): SuggestResult {
     val prompt = buildPrompt(lines, r.setting.name, r.unreplied, now, styleSection(style, profile))
     val userContent = ctx.userContent(prompt, lines)
     // Repeat the rules last: the model weighs the end of the prompt most.
-    val rules = profile.notes.lines().map { it.trim() }.filter { it.isNotEmpty() }
-    if (rules.isNotEmpty() || profile.bannedList.isNotEmpty()) userContent.put(JSONObject().put("type", "text").put("text",
+    if (profile.rules.isNotEmpty() || profile.bannedList.isNotEmpty()) userContent.put(JSONObject().put("type", "text").put("text",
         "Before answering, check every suggestion against the USER'S RULES" +
             (if (profile.bannedList.isEmpty()) "." else ", and never use: ${profile.bannedList.joinToString(", ")}.")))
     val images = (0 until userContent.length()).count { userContent.getJSONObject(it).optString("type") == "image" }

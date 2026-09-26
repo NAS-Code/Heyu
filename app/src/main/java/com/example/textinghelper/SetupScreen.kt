@@ -100,45 +100,37 @@ private val SMALL_PADDING = PaddingValues(horizontal = 18.dp, vertical = 0.dp)
 private fun SmallLabel(text: String) = Text(text, fontSize = MaterialTheme.typography.labelLarge.fontSize * 0.75f)
 
 @Composable
-private fun StylePicker(style: Style, onPick: (Style) -> Unit) {
+private fun StylePicker(style: Style, onPick: (Style) -> Unit) =
+    DropdownButton(Style.entries.map { "${it.label} style" to it }, onPick) { open ->
+        OutlinedButton(onClick = open, SMALL_BUTTON, contentPadding = SMALL_PADDING) { SmallLabel("${style.label} style") }
+    }
+
+/** Any button that opens a menu of (label, value) options. */
+@Composable
+private fun <T> DropdownButton(options: List<Pair<String, T>>, onPick: (T) -> Unit, button: @Composable (open: () -> Unit) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
-        OutlinedButton(onClick = { open = true }, SMALL_BUTTON, contentPadding = SMALL_PADDING) { SmallLabel("${style.label} style") }
+        button { open = true }
         DropdownMenu(open, onDismissRequest = { open = false }) {
-            Style.entries.forEach { s ->
-                DropdownMenuItem(text = { Text("${s.label} style") }, onClick = { open = false; onPick(s) })
-            }
+            options.forEach { (label, value) -> DropdownMenuItem(text = { Text(label) }, onClick = { open = false; onPick(value) }) }
         }
     }
 }
 
 @Composable
-private fun SortPicker(sort: Sort, onPick: (Sort) -> Unit) {
-    var open by remember { mutableStateOf(false) }
-    Box {
-        AssistChip(onClick = { open = true }, label = { Text("Sort: ${sort.label}") })
-        DropdownMenu(open, onDismissRequest = { open = false }) {
-            Sort.entries.forEach { s ->
-                DropdownMenuItem(text = { Text(s.label) }, onClick = { open = false; onPick(s) })
-            }
-        }
+private fun SortPicker(sort: Sort, onPick: (Sort) -> Unit) =
+    DropdownButton(Sort.entries.map { it.label to it }, onPick) { open ->
+        AssistChip(onClick = open, label = { Text("Sort: ${sort.label}") })
     }
-}
 
 @Composable
 private fun TierPicker(days: Int?, onPick: (Int?) -> Unit) {
-    var menuOpen by remember { mutableStateOf(false) }
     var customOpen by remember { mutableStateOf(false) }
-    Box {
-        if (days == null) OutlinedButton(onClick = { menuOpen = true }, SMALL_BUTTON, contentPadding = SMALL_PADDING) { SmallLabel("Ignore") }
-        else Button(onClick = { menuOpen = true }, SMALL_BUTTON, contentPadding = SMALL_PADDING) { SmallLabel(tierLabel(days)) }
-        DropdownMenu(menuOpen, onDismissRequest = { menuOpen = false }) {
-            TIERS.forEach { (label, d) ->
-                DropdownMenuItem(text = { Text("$label ($d days)") }, onClick = { menuOpen = false; onPick(d) })
-            }
-            DropdownMenuItem(text = { Text("Custom…") }, onClick = { menuOpen = false; customOpen = true })
-            DropdownMenuItem(text = { Text("Ignore") }, onClick = { menuOpen = false; onPick(null) })
-        }
+    val custom = -1 // menu value for "Custom…", which opens the days dialog instead of picking
+    val options = TIERS.map { (label, d) -> "$label ($d days)" to d } + ("Custom…" to custom) + ("Ignore" to null)
+    DropdownButton(options, { if (it == custom) customOpen = true else onPick(it) }) { open ->
+        if (days == null) OutlinedButton(onClick = open, SMALL_BUTTON, contentPadding = SMALL_PADDING) { SmallLabel("Ignore") }
+        else Button(onClick = open, SMALL_BUTTON, contentPadding = SMALL_PADDING) { SmallLabel(tierLabel(days)) }
     }
     if (customOpen) {
         var input by remember { mutableStateOf(days?.toString() ?: "") }

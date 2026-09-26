@@ -65,7 +65,7 @@ fun App() {
         LaunchedEffect(refreshKey) {
             loading = true
             if (data == null) data = withContext(Dispatchers.IO) { loadCachedDiagnostic(ctx) }
-            data = withContext(Dispatchers.IO) { readAndCacheDiagnostic(ctx) }
+            data = withContext(Dispatchers.IO) { readDiagnostic(ctx) }
             loading = false
         }
         var tab by remember { mutableIntStateOf(0) }

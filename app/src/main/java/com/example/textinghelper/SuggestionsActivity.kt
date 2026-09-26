@@ -6,7 +6,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -59,16 +58,7 @@ class SuggestionsActivity : ComponentActivity() {
                         OutlinedButton(onClick = { send(null) }) { Text("Write my own") }
                         if (prompt != null) TextButton(onClick = { promptOpen = true }) { Text("View prompt") }
                     }
-                    if (promptOpen && prompt != null) AlertDialog(
-                        onDismissRequest = { promptOpen = false },
-                        title = { Text("Prompt sent to Claude") },
-                        text = {
-                            SelectionContainer(Modifier.verticalScroll(rememberScrollState())) {
-                                Text(prompt, style = MaterialTheme.typography.bodySmall)
-                            }
-                        },
-                        confirmButton = { TextButton(onClick = { promptOpen = false }) { Text("Close") } },
-                    )
+                    if (promptOpen && prompt != null) PromptDialog("Prompt sent to Claude", prompt) { promptOpen = false }
                 }
             }
         }

@@ -105,6 +105,27 @@ fun SettingsScreen() {
     }
 }
 
+/** Tap-to-expand row used by the Settings subsections. */
+@Composable
+fun CollapsibleHeader(title: String, subtitle: String, expanded: Boolean, onToggle: () -> Unit) {
+    Row(Modifier.fillMaxWidth().clickable(onClick = onToggle).padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(title)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall)
+        }
+        Text(if (expanded) "▲" else "▼")
+    }
+}
+
+/** Scrollable, selectable view of the exact prompt sent to Claude. */
+@Composable
+fun PromptDialog(title: String, text: String, onClose: () -> Unit) = AlertDialog(
+    onDismissRequest = onClose,
+    title = { Text(title) },
+    text = { SelectionContainer(Modifier.verticalScroll(rememberScrollState())) { Text(text, style = MaterialTheme.typography.bodySmall) } },
+    confirmButton = { TextButton(onClick = onClose) { Text("Close") } },
+)
+
 @Composable
 private fun SectionTitle(text: String) =
     Text(text, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
@@ -119,15 +140,8 @@ private fun LatestSuggestions() {
     var prompt by remember { mutableStateOf<Pair<String, String>?>(null) } // name to prompt text
     LaunchedEffect(expanded) { if (expanded) runs = withContext(Dispatchers.IO) { loadLastRuns(ctx) } }
 
-    Row(Modifier.fillMaxWidth().clickable { expanded = !expanded }.padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) {
-            Text("Latest suggestions")
-            Text("Each person's last suggested texts, Claude's recap, and the prompt it was sent.",
-                style = MaterialTheme.typography.bodySmall)
-        }
-        Text(if (expanded) "▲" else "▼")
-    }
+    CollapsibleHeader("Latest suggestions", "Each person's last suggested texts, Claude's recap, and the prompt it was sent.",
+        expanded) { expanded = !expanded }
     if (!expanded) return
     val list = runs
     when {
@@ -156,14 +170,7 @@ private fun LatestSuggestions() {
             }
         }
     }
-    prompt?.let { (name, text) ->
-        AlertDialog(
-            onDismissRequest = { prompt = null },
-            title = { Text("Prompt for $name") },
-            text = { SelectionContainer(Modifier.verticalScroll(rememberScrollState())) { Text(text, style = MaterialTheme.typography.bodySmall) } },
-            confirmButton = { TextButton(onClick = { prompt = null }) { Text("Close") } },
-        )
-    }
+    prompt?.let { (name, text) -> PromptDialog("Prompt for $name", text) { prompt = null } }
 }
 
 /** Collapsed by default; Save and Remove each ask for confirmation so the key isn't changed by accident. */
@@ -179,16 +186,8 @@ private fun ApiKeySection() {
     val scope = rememberCoroutineScope()
     fun close() { expanded = false; input = ""; confirm = null }
 
-    Row(Modifier.fillMaxWidth().clickable { if (expanded) close() else expanded = true }.padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) {
-            Text("API key")
-            Text(savedKey?.let { "Saved (ends in …${it.takeLast(4)}). Stored encrypted on this phone only." }
-                ?: "Not set. Reminders still work, just without suggested texts.",
-                style = MaterialTheme.typography.bodySmall)
-        }
-        Text(if (expanded) "▲" else "▼")
-    }
+    CollapsibleHeader("API key", savedKey?.let { "Saved (ends in …${it.takeLast(4)}). Stored encrypted on this phone only." }
+        ?: "Not set. Reminders still work, just without suggested texts.", expanded) { if (expanded) close() else expanded = true }
     if (expanded) {
         OutlinedTextField(input, { input = it.trim() }, Modifier.fillMaxWidth(),
             label = { Text(if (savedKey == null) "Paste key (sk-ant-…)" else "Paste replacement key") }, singleLine = true,

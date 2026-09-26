@@ -26,6 +26,8 @@ data class StyleProfile(
 ) {
     val isEmpty get() = notes.isBlank() && banned.isBlank() && description.isBlank() && examples.isEmpty()
     /** Never-use field plus words banned in the notes (e.g. "don't use yo"). All enforced in code. */
+    /** Notes as one rule per non-blank line. */
+    val rules get() = notes.lines().map(String::trim).filter(String::isNotEmpty)
     val bannedList get() = (banned.split(',').map { it.trim() }.filter { it.isNotEmpty() } + bannedFromNotes(notes)).distinct()
 }
 
@@ -133,8 +135,7 @@ suspend fun buildStyle(ctx: Context, style: Style, contacts: Map<Long, ContactSt
     val all = chats.flatten()
     if (all.size < 20) error("only ${all.size} usable messages from these chats; pick contacts you text more")
 
-    val rules = (p.notes.lines().map { it.trim() }.filter { it.isNotEmpty() } +
-        (if (p.bannedList.isEmpty()) emptyList() else listOf("Never use: ${p.bannedList.joinToString(", ")}")))
+    val rules = p.rules + (if (p.bannedList.isEmpty()) emptyList() else listOf("Never use: ${p.bannedList.joinToString(", ")}"))
     val text = (if (rules.isEmpty()) "" else "The person's own rules for this style. Your description and examples must follow them:\n" +
         rules.joinToString("\n") { "- $it" } + "\n\n") +
         chats.mapIndexed { i, msgs -> "Chat ${i + 1}:\n" + msgs.joinToString("\n") }.joinToString("\n\n")

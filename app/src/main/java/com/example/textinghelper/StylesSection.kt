@@ -23,19 +23,12 @@ fun TextStyleSettings() {
     var contacts by remember { mutableStateOf<List<ContactStats>?>(null) }
     LaunchedEffect(expanded) {
         if (expanded && contacts == null)
-            contacts = withContext(Dispatchers.IO) { (loadCachedDiagnostic(ctx) ?: readAndCacheDiagnostic(ctx)).contacts }
+            contacts = withContext(Dispatchers.IO) { (loadCachedDiagnostic(ctx) ?: readDiagnostic(ctx)).contacts }
     }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(Modifier.fillMaxWidth().clickable { expanded = !expanded }.padding(vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("Friends, Family and Professional")
-                Text(Style.entries.joinToString(" · ") { st ->
-                    st.label + if (ctx.loadStyle(st).builtAt != null) " ✓" else " (not built)"
-                }, style = MaterialTheme.typography.bodySmall)
-            }
-            Text(if (expanded) "▲" else "▼")
-        }
+        CollapsibleHeader("Friends, Family and Professional", Style.entries.joinToString(" · ") { st ->
+            st.label + if (ctx.loadStyle(st).builtAt != null) " ✓" else " (not built)"
+        }, expanded) { expanded = !expanded }
         if (expanded) {
             Text("Pick up to $MAX_STYLE_SAMPLES chats per style that show how you text those people. Claude studies up to 250 " +
                 "of your own messages from each and builds a style used for every suggestion. Contacts without a style use Friends.",

@@ -33,7 +33,7 @@ val Context.showPromptButton get() = prefs().getBoolean("showPrompt", true)
 suspend fun runCheck(ctx: Context, ignoreRecent: Boolean = false): String = withContext(Dispatchers.IO) {
     val dao = AppDb.get(ctx).dao()
     val now = System.currentTimeMillis()
-    val stats = readAndCacheDiagnostic(ctx).contacts.associateBy { it.contactId }
+    val stats = readDiagnostic(ctx).contacts.associateBy { it.contactId }
     if (ctx.varyTiming) for (s in dao.list()) rollJitter(s, lastOut(s, stats[s.contactId]), Random.Default)?.let { dao.save(it) }
     val all = findDue(dao.list(), stats, now, ignoreRecent, vary = ctx.varyTiming)
     val picks = all.take(ctx.dailyCap)
