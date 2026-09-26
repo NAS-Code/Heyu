@@ -18,3 +18,6 @@ $env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
 Unit tests: `.\gradlew testDebugUnitTest`
 
 The Claude API key is entered in the app's Settings and stored encrypted on the phone; it is never in this repo.
+
+## Logo
+Design spec, SVGs and the icon generator are in [docs/logo](docs/logo/README.md).
