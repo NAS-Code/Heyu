@@ -77,7 +77,8 @@ fun SetupScreen(contacts: List<ContactStats>) {
         items(shown, key = { it.contactId }) { c ->
             Column {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(c.name, Modifier.weight(1f), fontWeight = FontWeight.Bold)
+                    Text(c.name, Modifier.weight(1f), fontWeight = FontWeight.Bold,
+                        fontSize = MaterialTheme.typography.bodyLarge.fontSize * 1.25f)
                     Text("my last text ${fmt(c.lastOutgoing)}", style = MaterialTheme.typography.bodySmall)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -91,11 +92,18 @@ fun SetupScreen(contacts: List<ContactStats>) {
     }
 }
 
+// Row buttons at 75% of Material's default (40dp tall, 24dp side padding, 14sp text).
+private val SMALL_BUTTON = Modifier.height(30.dp)
+private val SMALL_PADDING = PaddingValues(horizontal = 18.dp, vertical = 0.dp)
+
+@Composable
+private fun SmallLabel(text: String) = Text(text, fontSize = MaterialTheme.typography.labelLarge.fontSize * 0.75f)
+
 @Composable
 private fun StylePicker(style: Style, onPick: (Style) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
-        OutlinedButton(onClick = { open = true }) { Text("${style.label} style") }
+        OutlinedButton(onClick = { open = true }, SMALL_BUTTON, contentPadding = SMALL_PADDING) { SmallLabel("${style.label} style") }
         DropdownMenu(open, onDismissRequest = { open = false }) {
             Style.entries.forEach { s ->
                 DropdownMenuItem(text = { Text("${s.label} style") }, onClick = { open = false; onPick(s) })
@@ -122,8 +130,8 @@ private fun TierPicker(days: Int?, onPick: (Int?) -> Unit) {
     var menuOpen by remember { mutableStateOf(false) }
     var customOpen by remember { mutableStateOf(false) }
     Box {
-        if (days == null) OutlinedButton(onClick = { menuOpen = true }) { Text("Ignore") }
-        else Button(onClick = { menuOpen = true }) { Text(tierLabel(days)) }
+        if (days == null) OutlinedButton(onClick = { menuOpen = true }, SMALL_BUTTON, contentPadding = SMALL_PADDING) { SmallLabel("Ignore") }
+        else Button(onClick = { menuOpen = true }, SMALL_BUTTON, contentPadding = SMALL_PADDING) { SmallLabel(tierLabel(days)) }
         DropdownMenu(menuOpen, onDismissRequest = { menuOpen = false }) {
             TIERS.forEach { (label, d) ->
                 DropdownMenuItem(text = { Text("$label ($d days)") }, onClick = { menuOpen = false; onPick(d) })
