@@ -1,9 +1,5 @@
 package com.example.textinghelper
 
-import android.os.Bundle
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -15,47 +11,39 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.textinghelper.ui.theme.TextingHelperTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** Settings → Texting styles: pick sample chats per style, build the profile, review/edit it. */
-class StylesActivity : ComponentActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
-        setContent {
-            TextingHelperTheme {
-                Surface(Modifier.fillMaxSize()) {
-                    Box(Modifier.safeDrawingPadding().padding(16.dp)) { StylesScreen(onBack = { finish() }) }
-                }
-            }
-        }
-    }
-}
-
+/** Settings → Text Style Settings: collapsed by default; pick sample chats per style, build, review/edit. */
 @Composable
-private fun StylesScreen(onBack: () -> Unit) {
+fun TextStyleSettings() {
     val ctx = LocalContext.current
+    var expanded by remember { mutableStateOf(false) }
     var contacts by remember { mutableStateOf<List<ContactStats>?>(null) }
-    LaunchedEffect(Unit) {
-        contacts = withContext(Dispatchers.IO) { (loadCachedDiagnostic(ctx) ?: readAndCacheDiagnostic(ctx)).contacts }
+    LaunchedEffect(expanded) {
+        if (expanded && contacts == null)
+            contacts = withContext(Dispatchers.IO) { (loadCachedDiagnostic(ctx) ?: readAndCacheDiagnostic(ctx)).contacts }
     }
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = onBack) { Text("← Back") }
-                Text("Texting styles", style = MaterialTheme.typography.headlineSmall)
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(Modifier.fillMaxWidth().clickable { expanded = !expanded }.padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Friends, Family and Professional")
+                Text(Style.entries.joinToString(" · ") { st ->
+                    st.label + if (ctx.loadStyle(st).builtAt != null) " ✓" else " (not built)"
+                }, style = MaterialTheme.typography.bodySmall)
             }
+            Text(if (expanded) "▲" else "▼")
+        }
+        if (expanded) {
             Text("Pick up to $MAX_STYLE_SAMPLES chats per style that show how you text those people. Claude studies up to 250 " +
                 "of your own messages from each and builds a style used for every suggestion. Contacts without a style use Friends.",
                 style = MaterialTheme.typography.bodySmall)
             Text("Building sends those messages (yours only, no names) to Anthropic once.", style = MaterialTheme.typography.bodySmall)
+            val c = contacts
+            if (c == null) Text("Loading contacts…") else Style.entries.forEach { StyleCard(it, c) }
         }
-        val c = contacts
-        if (c == null) item { Text("Loading contacts…") }
-        else items(Style.entries) { StyleCard(it, c) }
     }
 }
 

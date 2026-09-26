@@ -29,7 +29,8 @@ fun SettingsScreen() {
     var running by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
-    Column(Modifier.verticalScroll(rememberScrollState()).padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(Modifier.verticalScroll(rememberScrollState()).padding(top = 16.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        SectionTitle("Notification Settings")
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Daily reminder time", Modifier.weight(1f))
             OutlinedButton(onClick = {
@@ -58,11 +59,13 @@ fun SettingsScreen() {
             Switch(vary, { vary = it; ctx.prefs().edit().putBoolean("vary", it).apply() })
         }
         HorizontalDivider()
+        SectionTitle("Claude API Key")
         ApiKeySection()
-        OutlinedButton(onClick = { ctx.startActivity(android.content.Intent(ctx, StylesActivity::class.java)) }) {
-            Text("Texting styles…")
-        }
         HorizontalDivider()
+        SectionTitle("Text Style Settings")
+        TextStyleSettings()
+        HorizontalDivider()
+        SectionTitle("Testing Settings")
         OutlinedButton(onClick = {
             // Fake contact (id -1): Snooze/Done do nothing, Text opens Messages with no recipient.
             val fake = ContactSetting(-1, "", "Test Person", 7)
@@ -82,6 +85,10 @@ fun SettingsScreen() {
     }
 }
 
+@Composable
+private fun SectionTitle(text: String) =
+    Text(text, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+
 /** Collapsed by default; Save and Remove each ask for confirmation so the key isn't changed by accident. */
 @Composable
 private fun ApiKeySection() {
@@ -98,7 +105,7 @@ private fun ApiKeySection() {
     Row(Modifier.fillMaxWidth().clickable { if (expanded) close() else expanded = true }.padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
-            Text("Claude API key")
+            Text("API key")
             Text(savedKey?.let { "Saved (ends in …${it.takeLast(4)}). Stored encrypted on this phone only." }
                 ?: "Not set. Reminders still work, just without suggested texts.",
                 style = MaterialTheme.typography.bodySmall)
