@@ -75,14 +75,15 @@ fun SetupScreen(contacts: List<ContactStats>) {
             }
         }
         items(shown, key = { it.contactId }) { c ->
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(c.name, fontWeight = FontWeight.Bold)
-                    Text("${c.count12Months} texts/yr · my last text ${fmt(c.lastOutgoing)}",
-                        style = MaterialTheme.typography.bodySmall)
+            Column {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(c.name, Modifier.weight(1f), fontWeight = FontWeight.Bold)
+                    Text("my last text ${fmt(c.lastOutgoing)}", style = MaterialTheme.typography.bodySmall)
                 }
-                StylePicker(styleOf(byId[c.contactId]?.style)) { setStyle(c, it) }
-                TierPicker(byId[c.contactId]?.frequencyDays) { setDays(c, it) }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TierPicker(byId[c.contactId]?.frequencyDays) { setDays(c, it) }
+                    StylePicker(styleOf(byId[c.contactId]?.style)) { setStyle(c, it) }
+                }
             }
         }
         if (shown.isEmpty()) item { Text("No matches.", style = MaterialTheme.typography.bodySmall) }
@@ -94,9 +95,7 @@ fun SetupScreen(contacts: List<ContactStats>) {
 private fun StylePicker(style: Style, onPick: (Style) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
-        TextButton(onClick = { open = true }, contentPadding = PaddingValues(horizontal = 6.dp)) {
-            Text(if (style == Style.PROFESSIONAL) "Pro" else style.label, style = MaterialTheme.typography.labelSmall)
-        }
+        OutlinedButton(onClick = { open = true }) { Text("${style.label} style") }
         DropdownMenu(open, onDismissRequest = { open = false }) {
             Style.entries.forEach { s ->
                 DropdownMenuItem(text = { Text("${s.label} style") }, onClick = { open = false; onPick(s) })
