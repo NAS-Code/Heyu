@@ -46,7 +46,7 @@ fun HomeScreen(contacts: List<ContactStats>, onRefresh: () -> Unit) {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
                 Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Reminders may arrive late", fontWeight = FontWeight.Bold)
-                    Text("Android's battery saver can delay the daily check. Allow Texting Helper to run in the background so it fires on time.",
+                    Text("Android's battery saver can delay the daily check. Allow Heyu to run in the background so it fires on time.",
                         style = MaterialTheme.typography.bodySmall)
                     Button(onClick = {
                         // Shows Android's own "Let app always run in background?" dialog. Fine for a

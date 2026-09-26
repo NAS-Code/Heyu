@@ -50,7 +50,7 @@ fun App() {
 
     if (!hasPerms) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Texting Helper", style = MaterialTheme.typography.headlineMedium)
+            Text("Heyu", style = MaterialTheme.typography.headlineMedium)
             Text("To figure out who you haven't texted in a while, this app needs to read:")
             Text("• Your SMS/MMS messages (read-only). If you add a Claude API key, your last 50 messages with a person are sent to Anthropic to draft a suggested text when they're due.")
             Text("• Your contacts, to put names to phone numbers")
