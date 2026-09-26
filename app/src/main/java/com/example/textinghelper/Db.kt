@@ -17,6 +17,7 @@ data class ContactSetting(
     val handledAt: Long? = null, // tapped "Done": counts like a text I sent
     val jitterCycle: Long? = null, // cycle start (lastOut) that jitterDays was decided for
     @ColumnInfo(defaultValue = "0") val jitterDays: Int = 0, // this cycle's shift, see rollJitter()
+    val style: String? = null, // Style.key for suggestions; null = Friends
 )
 
 @Entity
@@ -64,7 +65,7 @@ interface AppDao {
     }
 }
 
-@Database(entities = [ContactSetting::class, ReminderLog::class], version = 4, exportSchema = false)
+@Database(entities = [ContactSetting::class, ReminderLog::class], version = 5, exportSchema = false)
 abstract class AppDb : RoomDatabase() {
     abstract fun dao(): AppDao
 
@@ -84,6 +85,9 @@ abstract class AppDb : RoomDatabase() {
                     override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
                         for (c in listOf("inputTokens", "outputTokens", "images")) db.execSQL("ALTER TABLE ReminderLog ADD COLUMN $c INTEGER")
                     }
+                }, object : Migration(4, 5) {
+                    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) =
+                        db.execSQL("ALTER TABLE ContactSetting ADD COLUMN style TEXT")
                 })
                 .build().also { instance = it }
         }

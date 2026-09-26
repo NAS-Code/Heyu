@@ -25,6 +25,7 @@
             android:taskAffinity=""
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
         <activity android:name=".SuggestionsActivity" android:exported="false" android:excludeFromRecents="true" />
+        <activity android:name=".StylesActivity" android:exported="false" />
         <receiver android:name=".ActionReceiver" android:exported="false" />
     </application>
 </manifest>

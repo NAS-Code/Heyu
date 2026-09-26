@@ -139,7 +139,8 @@ fun UsageSection(names: Map<Long, String>) {
             Text("Estimated at Sonnet 5 list prices ($2 / $10 per million tokens). Output includes thinking.",
                 style = MaterialTheme.typography.bodySmall)
             rows.take(10).forEach { r ->
-                Text("${fmt(r.time)} · ${names[r.contactId] ?: "?"} · ${n(r.inputTokens ?: 0)} in / ${n(r.outputTokens ?: 0)} out" +
+                val who = names[r.contactId] ?: if (r.reason.startsWith("style:")) "Style build (${r.reason.substringAfter(':')})" else "?"
+                Text("${fmt(r.time)} · $who · ${n(r.inputTokens ?: 0)} in / ${n(r.outputTokens ?: 0)} out" +
                     (if ((r.images ?: 0) > 0) " · ${r.images} img" else "") + " · ${usd(costUsd(r.inputTokens ?: 0, r.outputTokens ?: 0))}",
                     style = MaterialTheme.typography.bodySmall)
             }

@@ -48,7 +48,7 @@ fun costUsd(inputTokens: Int, outputTokens: Int) = inputTokens * INPUT_PER_M / 1
 
 private const val SYSTEM = """You draft text messages that the user will send to a friend. Write AS the user, in first person.
 
-Style: copy the user's own texting style from the lines labeled "Me:" - typical message length, capitalization, punctuation, emoji use, slang and abbreviations. If they text in lowercase with no periods, so do you. Never sound more formal, polished or enthusiastic than they do.
+Style: if there is a MY TEXTING STYLE section, it is the user's baseline voice for this kind of relationship. Match its message length, capitalization, punctuation, emoji use and slang, and imitate its real example texts. Also copy the user's style from the lines labeled "Me:" in this conversation; where they differ from the baseline (nicknames, in-jokes, a different tone with this person), follow this conversation. If they text in lowercase with no periods, so do you. Never sound more formal, polished or enthusiastic than they do.
 
 Content:
 - The RECENT CONVERSATION section matters most. OLDER CONTEXT is background only; don't dig up old topics unless nothing recent works.
@@ -80,12 +80,13 @@ private const val IMAGE_EDGE = 1000 // px, long side. ~1,000-1,300 tokens per im
 private fun stamp(ms: Long) = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).format(Date(ms))
 
 /** The user message: older context, recent conversation, then metadata. Pure, so it's unit tested. */
-fun buildPrompt(lines: List<Line>, name: String, unreplied: Boolean, now: Long): String {
+fun buildPrompt(lines: List<Line>, name: String, unreplied: Boolean, now: Long, styleSection: String? = null): String {
     fun render(ls: List<Line>) = ls.joinToString("\n") { "[${stamp(it.date)}] ${if (it.fromMe) "Me" else "Them"}: ${it.text}" }
     val recent = lines.takeLast(RECENT)
     val older = lines.dropLast(RECENT)
     val last = lines.lastOrNull()
     return buildString {
+        if (styleSection != null) appendLine(styleSection)
         appendLine("Friend's name: $name")
         if (older.isNotEmpty()) appendLine("\nOLDER CONTEXT (background only):\n${render(older)}")
         appendLine("\nRECENT CONVERSATION (most relevant):\n${if (recent.isEmpty()) "(no messages yet)" else render(recent)}")
@@ -189,22 +190,19 @@ fun checkKey(key: String): String? = try {
     "Couldn't reach Anthropic to check the key (no internet?)."
 }
 
-/** Calls Claude. Throws with a readable message on any failure; the caller still sends the reminder. */
-fun suggest(ctx: Context, r: Reminder, threadIds: List<Long>): SuggestResult {
-    val key = ctx.apiKey ?: error("no API key set")
-    val now = System.currentTimeMillis()
-    val lines = readConversation(ctx, threadIds)
-    val prompt = buildPrompt(lines, r.setting.name, r.unreplied, now)
-    val userContent = ctx.userContent(prompt, lines)
+class ClaudeReply(val text: String, val inputTokens: Int, val outputTokens: Int)
 
+/** One Messages API call whose answer must match [schema]. Throws with a readable message on any failure. */
+fun callClaude(ctx: Context, system: String, content: JSONArray, schema: JSONObject, maxTokens: Int = 4000): ClaudeReply {
+    val key = ctx.apiKey ?: error("no API key set")
     val body = JSONObject()
         .put("model", "claude-sonnet-5")
-        .put("max_tokens", 4000)
-        .put("system", SYSTEM)
+        .put("max_tokens", maxTokens)
+        .put("system", system)
         // Schema guarantees valid JSON back.
         .put("output_config", JSONObject().put("effort", "medium")
-            .put("format", JSONObject().put("type", "json_schema").put("schema", SCHEMA)))
-        .put("messages", JSONArray().put(JSONObject().put("role", "user").put("content", userContent)))
+            .put("format", JSONObject().put("type", "json_schema").put("schema", schema)))
+        .put("messages", JSONArray().put(JSONObject().put("role", "user").put("content", content)))
 
     val req = Request.Builder()
         .url("https://api.anthropic.com/v1/messages")
@@ -220,11 +218,21 @@ fun suggest(ctx: Context, r: Reminder, threadIds: List<Long>): SuggestResult {
         val usage = json.optJSONObject("usage")
         val stop = json.optString("stop_reason")
         if (stop == "refusal") error("model declined")
-        val content = json.getJSONArray("content")
-        val out = (0 until content.length()).map { content.getJSONObject(it) }
+        val blocks = json.getJSONArray("content")
+        val out = (0 until blocks.length()).map { blocks.getJSONObject(it) }
             .filter { it.optString("type") == "text" }
             .joinToString("") { it.optString("text") }
-        return SuggestResult(parseSuggestions(out), usage?.optInt("input_tokens") ?: 0, usage?.optInt("output_tokens") ?: 0,
-            (0 until userContent.length()).count { userContent.getJSONObject(it).optString("type") == "image" })
+        return ClaudeReply(out, usage?.optInt("input_tokens") ?: 0, usage?.optInt("output_tokens") ?: 0)
     }
+}
+
+/** Drafts suggestions for one reminder. Throws on failure; the caller still sends the reminder. */
+fun suggest(ctx: Context, r: Reminder, threadIds: List<Long>): SuggestResult {
+    val now = System.currentTimeMillis()
+    val lines = readConversation(ctx, threadIds)
+    val prompt = buildPrompt(lines, r.setting.name, r.unreplied, now, ctx.styleSectionFor(r.setting.style))
+    val userContent = ctx.userContent(prompt, lines)
+    val reply = callClaude(ctx, SYSTEM, userContent, SCHEMA)
+    return SuggestResult(parseSuggestions(reply.text), reply.inputTokens, reply.outputTokens,
+        (0 until userContent.length()).count { userContent.getJSONObject(it).optString("type") == "image" })
 }

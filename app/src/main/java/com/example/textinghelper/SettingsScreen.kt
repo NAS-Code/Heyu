@@ -59,6 +59,9 @@ fun SettingsScreen() {
         }
         HorizontalDivider()
         ApiKeySection()
+        OutlinedButton(onClick = { ctx.startActivity(android.content.Intent(ctx, StylesActivity::class.java)) }) {
+            Text("Texting styles…")
+        }
         HorizontalDivider()
         OutlinedButton(onClick = {
             // Fake contact (id -1): Snooze/Done do nothing, Text opens Messages with no recipient.

@@ -44,6 +44,10 @@ fun SetupScreen(contacts: List<ContactStats>) {
             ?: ContactSetting(c.contactId, c.phone, c.name, days))
     }
 
+    fun setStyle(c: ContactStats, style: Style) = scope.launch {
+        dao.save((byId[c.contactId] ?: ContactSetting(c.contactId, c.phone, c.name, null)).copy(style = style.key))
+    }
+
     val optedIn = contacts.count { byId[it.contactId]?.frequencyDays != null }
     val filtered = contacts.filter {
         (!onlyOptedIn || byId[it.contactId]?.frequencyDays != null) && it.name.contains(query.trim(), ignoreCase = true)
@@ -77,11 +81,27 @@ fun SetupScreen(contacts: List<ContactStats>) {
                     Text("${c.count12Months} texts/yr · my last text ${fmt(c.lastOutgoing)}",
                         style = MaterialTheme.typography.bodySmall)
                 }
+                StylePicker(styleOf(byId[c.contactId]?.style)) { setStyle(c, it) }
                 TierPicker(byId[c.contactId]?.frequencyDays) { setDays(c, it) }
             }
         }
         if (shown.isEmpty()) item { Text("No matches.", style = MaterialTheme.typography.bodySmall) }
     }
+    }
+}
+
+@Composable
+private fun StylePicker(style: Style, onPick: (Style) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        TextButton(onClick = { open = true }, contentPadding = PaddingValues(horizontal = 6.dp)) {
+            Text(if (style == Style.PROFESSIONAL) "Pro" else style.label, style = MaterialTheme.typography.labelSmall)
+        }
+        DropdownMenu(open, onDismissRequest = { open = false }) {
+            Style.entries.forEach { s ->
+                DropdownMenuItem(text = { Text("${s.label} style") }, onClick = { open = false; onPick(s) })
+            }
+        }
     }
 }
 

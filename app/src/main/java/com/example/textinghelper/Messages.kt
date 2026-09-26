@@ -136,13 +136,13 @@ data class Attachment(val uri: String, val isVideo: Boolean)
 
 data class Line(val date: Long, val fromMe: Boolean, val text: String, val attachments: List<Attachment> = emptyList())
 
-/** The last [limit] messages (with text) across these 1:1 threads, oldest first. */
-fun readConversation(ctx: Context, threadIds: List<Long>, limit: Int = 50): List<Line> {
+/** The last [limit] messages (with text) across these 1:1 threads, oldest first. [mineOnly]: only ones I sent. */
+fun readConversation(ctx: Context, threadIds: List<Long>, limit: Int = 50, mineOnly: Boolean = false): List<Line> {
     if (threadIds.isEmpty()) return emptyList()
     val threads = threadIds.joinToString(",")
     val out = ArrayList<Line>()
     ctx.query("content://sms", arrayOf("date", "type", "body"),
-        "thread_id IN ($threads) AND type IN (1,2)", "date DESC LIMIT $limit") {
+        "thread_id IN ($threads) AND type IN (${if (mineOnly) "2" else "1,2"})", "date DESC LIMIT $limit") {
         out += Line(it.getLong(0), it.getInt(1) == 2, it.getString(2) ?: "")
     }
 
@@ -150,7 +150,7 @@ fun readConversation(ctx: Context, threadIds: List<Long>, limit: Int = 50): List
     class Mms(val date: Long, val fromMe: Boolean)
     val mms = LinkedHashMap<Long, Mms>()
     ctx.query("content://mms", arrayOf("_id", "date", "msg_box"),
-        "thread_id IN ($threads) AND msg_box IN (1,2)", "date DESC LIMIT $limit") {
+        "thread_id IN ($threads) AND msg_box IN (${if (mineOnly) "2" else "1,2"})", "date DESC LIMIT $limit") {
         mms[it.getLong(0)] = Mms(it.getLong(1) * 1000, it.getInt(2) == 2)
     }
     if (mms.isNotEmpty()) {
