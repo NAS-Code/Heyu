@@ -170,6 +170,25 @@ private val http = OkHttpClient.Builder()
     .readTimeout(90, TimeUnit.SECONDS) // the model may think briefly before answering
     .build()
 
+/**
+ * Checks a key by listing models (free, uses no tokens). null = key works; otherwise a short reason.
+ * Blocking network call: run off the main thread.
+ */
+fun checkKey(key: String): String? = try {
+    val req = Request.Builder().url("https://api.anthropic.com/v1/models?limit=1")
+        .header("x-api-key", key).header("anthropic-version", "2023-06-01").build()
+    http.newCall(req).execute().use { resp ->
+        when {
+            resp.isSuccessful -> null
+            resp.code == 401 -> "Anthropic rejected this key (invalid or revoked)."
+            resp.code == 403 -> "This key doesn't have permission to use the API."
+            else -> "Anthropic returned an error (HTTP ${resp.code}), so the key couldn't be confirmed."
+        }
+    }
+} catch (e: java.io.IOException) {
+    "Couldn't reach Anthropic to check the key (no internet?)."
+}
+
 /** Calls Claude. Throws with a readable message on any failure; the caller still sends the reminder. */
 fun suggest(ctx: Context, r: Reminder, threadIds: List<Long>): SuggestResult {
     val key = ctx.apiKey ?: error("no API key set")
