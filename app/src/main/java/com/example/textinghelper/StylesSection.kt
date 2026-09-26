@@ -42,7 +42,13 @@ fun TextStyleSettings() {
                 style = MaterialTheme.typography.bodySmall)
             Text("Building sends those messages (yours only, no names) to Anthropic once.", style = MaterialTheme.typography.bodySmall)
             val c = contacts
-            if (c == null) Text("Loading contacts…") else Style.entries.forEach { StyleCard(it, c) }
+            // One tab per style, like the app's main tabs.
+            var tab by remember { mutableIntStateOf(0) }
+            PrimaryTabRow(selectedTabIndex = tab) {
+                Style.entries.forEachIndexed { i, st -> Tab(tab == i, onClick = { tab = i }, text = { Text(st.label) }) }
+            }
+            val st = Style.entries[tab]
+            if (c == null) Text("Loading contacts…") else key(st) { StyleCard(st, c) } // key: each tab keeps its own state
         }
     }
 }
@@ -62,7 +68,6 @@ private fun StyleCard(style: Style, contacts: List<ContactStats>) {
 
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(style.label, style = MaterialTheme.typography.titleMedium)
             Text("Sample chats (${p.samples.size}/$MAX_STYLE_SAMPLES)", style = MaterialTheme.typography.labelMedium)
             p.samples.forEach { id ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -76,6 +81,7 @@ private fun StyleCard(style: Style, contacts: List<ContactStats>) {
                 label = { Text("Your own notes (optional)") },
                 placeholder = { Text("e.g. no emojis, full sentences, always sign off with love") })
 
+            Row(verticalAlignment = Alignment.CenterVertically) {
             Button(enabled = p.samples.isNotEmpty() && !building, onClick = {
                 building = true
                 scope.launch {
@@ -87,12 +93,14 @@ private fun StyleCard(style: Style, contacts: List<ContactStats>) {
                     showProfile = true
                 }
             }) { Text(if (building) "Building…" else if (p.builtAt == null) "Build style" else "Rebuild") }
+            p.builtAt?.let { Text("Built ${fmt(it)}", Modifier.padding(start = 12.dp), style = MaterialTheme.typography.bodySmall) }
+            }
             result?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
 
             if (p.builtAt != null) {
                 Row(Modifier.fillMaxWidth().clickable { showProfile = !showProfile }, verticalAlignment = Alignment.CenterVertically) {
-                    Text("Built ${fmt(p.builtAt)} · ${p.examples.size} examples", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
-                    Text(if (showProfile) "Hide ▲" else "Show ▼", style = MaterialTheme.typography.bodySmall)
+                    Text("${p.examples.size} example texts", Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+                    Text(if (showProfile) "Hide ▲" else "Show ▼", style = MaterialTheme.typography.bodyLarge)
                 }
                 if (showProfile) {
                     OutlinedTextField(p.description, { update(p.copy(description = it)) }, Modifier.fillMaxWidth(),
