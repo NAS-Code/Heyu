@@ -75,7 +75,7 @@ fun SetupScreen(contacts: List<ContactStats>) {
             }
         }
         items(shown, key = { it.contactId }) { c ->
-            Column {
+            Column(Modifier.padding(bottom = 12.dp)) { // gap so each name's buttons read as its own
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(c.name, Modifier.weight(1f), fontWeight = FontWeight.Bold,
                         fontSize = MaterialTheme.typography.bodyLarge.fontSize * 1.25f)
