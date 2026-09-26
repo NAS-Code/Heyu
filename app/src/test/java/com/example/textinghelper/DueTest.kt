@@ -1,0 +1,101 @@
+package com.example.textinghelper
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class DueTest {
+    private val now = 1_000 * DAY
+
+    private fun setting(id: Long, freq: Int?, reminded: Long? = null, snoozed: Long? = null, handled: Long? = null) =
+        ContactSetting(id, "+1555000$id", "P$id", freq, snoozed, reminded, handled)
+
+    private fun stats(id: Long, lastOutDaysAgo: Long?, lastDaysAgo: Long, lastFromMe: Boolean) =
+        ContactStats(id, "P$id", "+1555000$id", 10, 10, now - lastDaysAgo * DAY,
+            lastOutDaysAgo?.let { now - it * DAY }, lastFromMe)
+
+    private fun names(settings: List<ContactSetting>, vararg st: ContactStats, ignoreRecent: Boolean = false, vary: Boolean = false) =
+        findDue(settings, st.associateBy { it.contactId }, now, ignoreRecent, vary).map { it.setting.name }
+
+    @Test fun dueWhenPastFrequency() {
+        assertEquals(listOf("P1"), names(listOf(setting(1, 7)), stats(1, 7, 7, true)))
+        assertEquals(emptyList<String>(), names(listOf(setting(1, 7)), stats(1, 6, 6, true)))
+    }
+
+    @Test fun ignoredAndSnoozedSkipped() {
+        assertEquals(emptyList<String>(), names(listOf(setting(1, null)), stats(1, 30, 30, true)))
+        assertEquals(emptyList<String>(), names(listOf(setting(1, 7, snoozed = now + DAY)), stats(1, 30, 30, true)))
+    }
+
+    @Test fun unrepliedAfterTwoDaysAndFirst() {
+        val s = listOf(setting(1, 7), setting(2, 90))
+        // P1 is 23 days overdue; P2 texted me 3 days ago -> P2 comes first.
+        assertEquals(listOf("P2", "P1"), names(s, stats(1, 30, 30, true), stats(2, 10, 3, false)))
+        // They texted 1 day ago: no reminder at all yet, even though I'm overdue.
+        assertEquals(emptyList<String>(), names(listOf(setting(2, 7)), stats(2, 30, 1, false)))
+    }
+
+    @Test fun mostOverdueFirst() {
+        val s = listOf(setting(1, 30), setting(2, 7))
+        // P1: 35 days vs 30 (5 over). P2: 20 vs 7 (13 over).
+        assertEquals(listOf("P2", "P1"), names(s, stats(1, 35, 35, true), stats(2, 20, 20, true)))
+    }
+
+    @Test fun noReRemindWithin3Days() {
+        val s = listOf(setting(1, 7, reminded = now - 2 * DAY))
+        assertEquals(emptyList<String>(), names(s, stats(1, 10, 10, true)))
+        assertEquals(listOf("P1"), names(s, stats(1, 10, 10, true), ignoreRecent = true))
+        assertEquals(listOf("P1"), names(listOf(setting(1, 7, reminded = now - 4 * DAY)), stats(1, 10, 10, true)))
+        // A 1-day tier re-reminds daily instead of waiting 3 days.
+        assertEquals(listOf("P1"), names(listOf(setting(1, 1, reminded = now - DAY)), stats(1, 5, 5, true)))
+    }
+
+    @Test fun doneResetsClockAndClearsUnreplied() {
+        val s = listOf(setting(1, 7, handled = now - DAY))
+        assertEquals(emptyList<String>(), names(s, stats(1, 30, 5, false)))
+    }
+
+    @Test fun upcomingSoonestFirstSkipsDueAndIgnored() {
+        val s = listOf(setting(1, 30), setting(2, 7), setting(3, 7), setting(4, null), setting(5, 7, snoozed = now + 3 * DAY))
+        val st = arrayOf(stats(1, 10, 10, true), stats(2, 5, 5, true), stats(3, 9, 9, true), stats(4, 1, 1, true), stats(5, 20, 20, true))
+        val up = upcoming(s, st.associateBy { it.contactId }, now)
+        // P2 due in 2 days, P5 snoozed 3 days, P1 in 20. P3 is already due, P4 ignored.
+        assertEquals(listOf("P2" to 2L, "P5" to 3L, "P1" to 20L), up.map { it.setting.name to it.inDays })
+    }
+
+    @Test fun neverTextedIsDue() {
+        assertEquals(listOf("P1"), names(listOf(setting(1, 30)), stats(1, null, 100, true)))
+        assertEquals(listOf("P1"), names(listOf(setting(1, 30))))
+    }
+
+    @Test fun jitterSizesByCadence() {
+        val rnd = kotlin.random.Random(1)
+        repeat(200) {
+            assertEquals(0, jitterFor(3, rnd))
+            assertEquals(1, kotlin.math.abs(jitterFor(14, rnd)))
+            assertTrue(kotlin.math.abs(jitterFor(30, rnd)) in 2..3)
+            assertTrue(kotlin.math.abs(jitterFor(90, rnd)) in 2..3)
+        }
+    }
+
+    @Test fun jitterAlternatesPerCycle() {
+        val rnd = kotlin.random.Random(2)
+        var s = setting(1, 14)
+        val shifted = (1..6).map { cycle ->
+            s = rollJitter(s, cycleStart = cycle * 100L, rnd)!!
+            assertEquals(null, rollJitter(s, cycle * 100L, rnd)) // same cycle: decided once
+            s.jitterDays != 0
+        }
+        assertEquals(listOf(true, false, true, false, true, false), shifted)
+    }
+
+    @Test fun varyShiftsDueDate() {
+        // Weekly, last texted 7 days ago. Delayed a day: not due yet. Setting off: due.
+        val s = listOf(setting(1, 7).copy(jitterDays = 1))
+        val st = stats(1, 7, 7, true)
+        assertEquals(emptyList<String>(), names(s, st, vary = true))
+        assertEquals(listOf("P1"), names(s, st, vary = false))
+        // Shortened a day: due at 6 days.
+        assertEquals(listOf("P1"), names(listOf(setting(1, 7).copy(jitterDays = -1)), stats(1, 6, 6, true), vary = true))
+    }
+}
