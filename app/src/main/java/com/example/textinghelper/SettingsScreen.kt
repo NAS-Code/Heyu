@@ -100,11 +100,11 @@ fun SettingsScreen() {
         Button(enabled = !running, onClick = {
             running = true
             scope.launch {
-                result = withContext(Dispatchers.IO) { runCheck(ctx, ignoreRecent = true) }
+                result = withContext(Dispatchers.IO) { runCheck(ctx) }
                 running = false
             }
         }) { Text(if (running) "Checking…" else "Run check now") }
-        Text("Testing only: ignores the \"don't re-remind within 3 days\" rule. Snooze and the daily cap still apply.",
+        Text("Same as the daily check, right now. It doesn't update \"Last daily check\" or send the nobody-to-text notice.",
             style = MaterialTheme.typography.bodySmall)
         result?.let { Text(it) }
     }

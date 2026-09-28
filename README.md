@@ -82,7 +82,8 @@ All in [`Due.kt`](app/src/main/java/com/example/textinghelper/Due.kt) (pure Kotl
 | **Unreplied** (higher priority) | They sent the last message, it's been more than 2 days, and you haven't tapped Done since. Opted-in contacts only, so verification codes never trigger this. |
 | **Recent incoming** | If they texted you in the last 2 days, no reminder at all, not even a due one; you already know about them. |
 | **Order** | Unreplied first (longest waiting first), then due (most days past their cadence first), then the daily cap. |
-| **No repeats** | Not reminded again within 3 days (or within their cadence, if shorter) unless something changed: you texted them, or they texted you. |
+| **Repeats** | Anyone still due is reminded at every daily check until you text them, snooze them, or tap Done. |
+| **Nobody due** | The daily check sends a silent "Nobody to text today" notice (with who's next), and Settings shows what the last check did. |
 | **Snooze** | Hidden for 3 days. |
 | **Done** | Counts as if you texted them: resets their clock and clears "unreplied". |
 | **Changing a cadence** | A fresh start: clears Done, snooze and the no-repeat window, so the clock goes back to your last real text. |

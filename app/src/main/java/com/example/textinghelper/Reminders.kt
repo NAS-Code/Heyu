@@ -29,17 +29,17 @@ val Context.varyTiming get() = prefs().getBoolean("vary", true)
 val Context.showRecap get() = prefs().getBoolean("showRecap", true)
 val Context.showPromptButton get() = prefs().getBoolean("showPrompt", true)
 
-/** Reads messages, picks who's due, posts notifications. Returns a summary for the "Run check now" button. */
-suspend fun runCheck(ctx: Context, ignoreRecent: Boolean = false): String = withContext(Dispatchers.IO) {
+/**
+ * Reads messages, picks who's due, posts notifications. Returns a summary for the "Run check now" button.
+ * [daily] = the scheduled check: it also records its status for Settings and says so when nobody's due.
+ */
+suspend fun runCheck(ctx: Context, daily: Boolean = false): String = withContext(Dispatchers.IO) {
     val dao = AppDb.get(ctx).dao()
     val now = System.currentTimeMillis()
     val stats = readDiagnostic(ctx).contacts.associateBy { it.contactId }
     if (ctx.varyTiming) for (s in dao.list()) rollJitter(s, lastOut(s, stats[s.contactId]), Random.Default)?.let { dao.save(it) }
-    val all = findDue(dao.list(), stats, now, ignoreRecent, vary = ctx.varyTiming)
+    val all = findDue(dao.list(), stats, now, vary = ctx.varyTiming)
     val picks = all.take(ctx.dailyCap)
-    // Due people held back by the no-repeat rule, so the daily status can say why they weren't sent.
-    val heldBack = if (ignoreRecent) emptyList() else
-        findDue(dao.list(), stats, now, ignoreRecent = true, vary = ctx.varyTiming).map { it.setting.name } - all.map { it.setting.name }.toSet()
     val aiErrors = mutableListOf<String>()
     var tokensIn = 0
     var tokensOut = 0
@@ -59,11 +59,11 @@ suspend fun runCheck(ctx: Context, ignoreRecent: Boolean = false): String = with
             inputTokens = result?.inputTokens, outputTokens = result?.outputTokens, images = result?.images))
     }
     // The real daily check (not "Run check now") records what it did, shown under the reminder time in Settings.
-    if (!ignoreRecent) ctx.saveLastCheck(checkStatus(picks.map { it.setting.name }, heldBack, all.size - picks.size, aiErrors.size))
+    if (daily) ctx.saveLastCheck(checkStatus(picks.map { it.setting.name }, all.size - picks.size, aiErrors.size))
     // The daily check always says something, so a quiet day doesn't look like a broken app.
-    if (!ignoreRecent && picks.isEmpty()) {
+    if (daily && picks.isEmpty()) {
         val next = upcoming(dao.list(), stats, now, ctx.varyTiming).firstOrNull()
-        notifyNobody(ctx, nobodyText(heldBack, next?.setting?.name, next?.inDays))
+        notifyNobody(ctx, nobodyText(next?.setting?.name, next?.inDays))
     }
     "${all.size} due, sent ${picks.size}: " + picks.joinToString { it.setting.name }.ifEmpty { "nobody" } +
         (if (ctx.apiKey == null) "\nNo API key set, so no suggestions." else "") +
@@ -74,7 +74,7 @@ suspend fun runCheck(ctx: Context, ignoreRecent: Boolean = false): String = with
 class DailyWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, params) {
     override suspend fun doWork(): Result {
         try {
-            runCheck(applicationContext)
+            runCheck(applicationContext, daily = true)
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) throw e
             applicationContext.saveLastCheck("failed: ${e.message}")
@@ -84,10 +84,9 @@ class DailyWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx,
 }
 
 /** One line for Settings: what the last daily check did and why. Pure, so it's unit tested. */
-fun checkStatus(sent: List<String>, heldBack: List<String>, overCap: Int, aiFailed: Int): String =
+fun checkStatus(sent: List<String>, overCap: Int, aiFailed: Int): String =
     listOfNotNull(
         if (sent.isEmpty()) "sent 0" else "sent ${sent.size}: ${sent.joinToString()}",
-        heldBack.takeIf { it.isNotEmpty() }?.let { "held back (reminded in the last 3 days): ${it.joinToString()}" },
         overCap.takeIf { it > 0 }?.let { "$it more over the daily cap" },
         aiFailed.takeIf { it > 0 }?.let { "no suggestion for $it (AI failed)" },
     ).joinToString(" · ")
@@ -130,17 +129,20 @@ private fun channel(ctx: Context): NotificationManager {
 }
 
 /** Body of the "nobody to text" notification. Pure, so it's unit tested. */
-fun nobodyText(heldBack: List<String>, nextName: String?, nextInDays: Long?): String = listOfNotNull(
-    if (heldBack.isEmpty()) "You're all caught up."
-    else "You're caught up. ${heldBack.joinToString()} ${if (heldBack.size == 1) "was" else "were"} reminded in the last few days.",
+fun nobodyText(nextName: String?, nextInDays: Long?): String = listOfNotNull(
+    "You're all caught up.",
     nextName?.let { "Next up: $it ${if (nextInDays == 1L) "tomorrow" else "in $nextInDays days"}." },
 ).joinToString(" ")
 
 private const val NOBODY_ID = 0 // contact ids are positive, the test notification is -1
+private const val SUMMARY_CHANNEL = "summary"
 
 private fun notifyNobody(ctx: Context, text: String) {
     val open = PendingIntent.getActivity(ctx, 0, Intent(ctx, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
-    channel(ctx).notify(NOBODY_ID, Notification.Builder(ctx, CHANNEL)
+    val nm = ctx.getSystemService(NotificationManager::class.java)
+    // Its own low-importance channel: shows up without sound or vibration, and can be turned off separately.
+    nm.createNotificationChannel(NotificationChannel(SUMMARY_CHANNEL, "Daily summary", NotificationManager.IMPORTANCE_LOW))
+    nm.notify(NOBODY_ID, Notification.Builder(ctx, SUMMARY_CHANNEL)
         .setSmallIcon(android.R.drawable.sym_action_chat)
         .setContentTitle("Nobody to text today")
         .setContentText(text)

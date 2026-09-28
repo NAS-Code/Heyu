@@ -17,7 +17,6 @@ fun findDue(
     settings: List<ContactSetting>,
     stats: Map<Long, ContactStats>,
     now: Long,
-    ignoreRecent: Boolean = false, // "Run check now" skips the 3-day rule so you can test repeatedly
     vary: Boolean = false, // apply each person's jitterDays (the "vary timing" setting)
 ): List<Reminder> {
     val unreplied = ArrayList<Pair<Reminder, Long>>() // sort key: when they texted (oldest first)
@@ -29,25 +28,21 @@ fun findDue(
         val st = stats[s.contactId]
         val handled = s.handledAt ?: 0
         val lastOut = lastOut(s, st) // 0 = never
-        val remindedAt = s.lastReminded ?: 0
-        // No repeat within 3 days, or within the frequency if that's shorter (e.g. a 1-day custom tier).
-        val recentlyReminded = !ignoreRecent && now - remindedAt < minOf(3, freq) * DAY
 
         // They sent the last message and I haven't replied (or tapped Done since).
         val theirText = st?.takeIf { !it.lastFromMe && it.lastDate > handled }?.lastDate
         if (theirText != null) {
             val waiting = now - theirText
             // Under 2 days: give me time to reply; don't nag with a "due" reminder either.
-            // Recently reminded: skip unless they've texted again since.
-            if (waiting > 2 * DAY && !(recentlyReminded && theirText <= remindedAt))
+            if (waiting > 2 * DAY)
                 unreplied += Reminder(s, true, waiting / DAY) to theirText
             continue
         }
 
         val daysSince = (now - lastOut) / DAY
-        // Recently reminded: skip unless I've texted/tapped Done since and they're due again.
         val effective = if (vary) freq + s.jitterDays else freq
-        if (daysSince >= effective && !(recentlyReminded && lastOut <= remindedAt))
+        // Still due every day until I text them, snooze, or tap Done.
+        if (daysSince >= effective)
             due += Reminder(s, false, if (lastOut == 0L) null else daysSince) to daysSince - effective
     }
     return unreplied.sortedBy { it.second }.map { it.first } +

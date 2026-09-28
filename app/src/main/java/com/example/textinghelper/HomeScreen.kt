@@ -32,9 +32,8 @@ fun HomeScreen(contacts: List<ContactStats>, onRefresh: () -> Unit) {
     val scope = rememberCoroutineScope()
     val stats = remember(contacts) { contacts.associateBy { it.contactId } }
     val now = System.currentTimeMillis()
-    // ignoreRecent: show everyone who's due, even if a notification already went out today.
     val vary = ctx.varyTiming
-    val due = findDue(settings, stats, now, ignoreRecent = true, vary = vary)
+    val due = findDue(settings, stats, now, vary = vary)
     val soon = upcoming(settings, stats, now, vary).take(10)
     val names = settings.associate { it.contactId to it.name }
 

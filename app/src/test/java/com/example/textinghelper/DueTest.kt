@@ -14,8 +14,8 @@ class DueTest {
         ContactStats(id, "P$id", "+1555000$id", 10, 10, now - lastDaysAgo * DAY,
             lastOutDaysAgo?.let { now - it * DAY }, lastFromMe)
 
-    private fun names(settings: List<ContactSetting>, vararg st: ContactStats, ignoreRecent: Boolean = false, vary: Boolean = false) =
-        findDue(settings, st.associateBy { it.contactId }, now, ignoreRecent, vary).map { it.setting.name }
+    private fun names(settings: List<ContactSetting>, vararg st: ContactStats, vary: Boolean = false) =
+        findDue(settings, st.associateBy { it.contactId }, now, vary).map { it.setting.name }
 
     @Test fun dueWhenPastFrequency() {
         assertEquals(listOf("P1"), names(listOf(setting(1, 7)), stats(1, 7, 7, true)))
@@ -41,13 +41,11 @@ class DueTest {
         assertEquals(listOf("P2", "P1"), names(s, stats(1, 35, 35, true), stats(2, 20, 20, true)))
     }
 
-    @Test fun noReRemindWithin3Days() {
-        val s = listOf(setting(1, 7, reminded = now - 2 * DAY))
-        assertEquals(emptyList<String>(), names(s, stats(1, 10, 10, true)))
-        assertEquals(listOf("P1"), names(s, stats(1, 10, 10, true), ignoreRecent = true))
-        assertEquals(listOf("P1"), names(listOf(setting(1, 7, reminded = now - 4 * DAY)), stats(1, 10, 10, true)))
-        // A 1-day tier re-reminds daily instead of waiting 3 days.
-        assertEquals(listOf("P1"), names(listOf(setting(1, 1, reminded = now - DAY)), stats(1, 5, 5, true)))
+    @Test fun remindedAgainEveryDayUntilHandled() {
+        // Reminded yesterday, still haven't texted: due again today.
+        assertEquals(listOf("P1"), names(listOf(setting(1, 7, reminded = now - DAY)), stats(1, 10, 10, true)))
+        // Same for an unreplied reminder.
+        assertEquals(listOf("P1"), names(listOf(setting(1, 7, reminded = now - DAY)), stats(1, 1, 3, false)))
     }
 
     @Test fun doneResetsClockAndClearsUnreplied() {
@@ -100,17 +98,14 @@ class DueTest {
     }
 
     @Test fun lastCheckStatusExplainsWhy() {
-        assertEquals("sent 0 · held back (reminded in the last 3 days): Luke, Mom, Billy",
-            checkStatus(emptyList(), listOf("Luke", "Mom", "Billy"), 0, 0))
+        assertEquals("sent 0", checkStatus(emptyList(), 0, 0))
         assertEquals("sent 2: Ben, Emily · 1 more over the daily cap · no suggestion for 1 (AI failed)",
-            checkStatus(listOf("Ben", "Emily"), emptyList(), 1, 1))
+            checkStatus(listOf("Ben", "Emily"), 1, 1))
     }
 
     @Test fun nobodyNotificationText() {
-        assertEquals("You're all caught up.", nobodyText(emptyList(), null, null))
-        assertEquals("You're caught up. Luke, Mom were reminded in the last few days. Next up: Ben tomorrow.",
-            nobodyText(listOf("Luke", "Mom"), "Ben", 1))
-        assertEquals("You're caught up. Luke was reminded in the last few days. Next up: Emily in 4 days.",
-            nobodyText(listOf("Luke"), "Emily", 4))
+        assertEquals("You're all caught up.", nobodyText(null, null))
+        assertEquals("You're all caught up. Next up: Ben tomorrow.", nobodyText("Ben", 1))
+        assertEquals("You're all caught up. Next up: Emily in 4 days.", nobodyText("Emily", 4))
     }
 }
