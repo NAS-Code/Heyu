@@ -26,6 +26,7 @@ val Context.reminderHour get() = prefs().getInt("hour", 18)
 val Context.reminderMinute get() = prefs().getInt("minute", 0)
 val Context.dailyCap get() = prefs().getInt("cap", 3)
 val Context.varyTiming get() = prefs().getBoolean("vary", true)
+val Context.rotateReminders get() = prefs().getBoolean("rotate", true)
 val Context.showRecap get() = prefs().getBoolean("showRecap", true)
 val Context.showPromptButton get() = prefs().getBoolean("showPrompt", true)
 
@@ -38,7 +39,7 @@ suspend fun runCheck(ctx: Context, daily: Boolean = false): String = withContext
     val now = System.currentTimeMillis()
     val stats = readDiagnostic(ctx).contacts.associateBy { it.contactId }
     if (ctx.varyTiming) for (s in dao.list()) rollJitter(s, lastOut(s, stats[s.contactId]), Random.Default)?.let { dao.save(it) }
-    val all = findDue(dao.list(), stats, now, vary = ctx.varyTiming)
+    val all = findDue(dao.list(), stats, now, vary = ctx.varyTiming, rotate = ctx.rotateReminders)
     val picks = all.take(ctx.dailyCap)
     val aiErrors = mutableListOf<String>()
     var tokensIn = 0

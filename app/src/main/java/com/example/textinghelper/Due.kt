@@ -18,6 +18,7 @@ fun findDue(
     stats: Map<Long, ContactStats>,
     now: Long,
     vary: Boolean = false, // apply each person's jitterDays (the "vary timing" setting)
+    rotate: Boolean = false, // within each group, least recently reminded first, so the daily cap takes turns
 ): List<Reminder> {
     val unreplied = ArrayList<Pair<Reminder, Long>>() // sort key: when they texted (oldest first)
     val due = ArrayList<Pair<Reminder, Long>>() // sort key: days past their frequency (biggest first)
@@ -45,8 +46,10 @@ fun findDue(
         if (daysSince >= effective)
             due += Reminder(s, false, if (lastOut == 0L) null else daysSince) to daysSince - effective
     }
-    return unreplied.sortedBy { it.second }.map { it.first } +
-        due.sortedByDescending { it.second }.map { it.first }
+    // Rotate: people reminded longest ago (or never) go first; ties keep the normal order.
+    fun List<Pair<Reminder, Long>>.ordered(normal: Comparator<Pair<Reminder, Long>>) =
+        sortedWith(if (rotate) compareBy<Pair<Reminder, Long>> { it.first.setting.lastReminded ?: 0L }.then(normal) else normal).map { it.first }
+    return unreplied.ordered(compareBy { it.second }) + due.ordered(compareByDescending { it.second })
 }
 
 data class Upcoming(val setting: ContactSetting, val inDays: Long)

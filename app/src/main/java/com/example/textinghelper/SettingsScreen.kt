@@ -56,6 +56,18 @@ fun SettingsScreen() {
             Text("$cap")
             TextButton(onClick = { setCap(cap + 1) }) { Text("+") }
         }
+        var rotate by remember { mutableStateOf(ctx.rotateReminders) }
+        Column {
+            Text("When more people are due than the daily cap")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                fun pick(v: Boolean) { rotate = v; ctx.prefs().edit().putBoolean("rotate", v).apply() }
+                FilterChip(rotate, onClick = { pick(true) }, label = { Text("Rotate") })
+                FilterChip(!rotate, onClick = { pick(false) }, label = { Text("Most overdue first") })
+            }
+            Text(if (rotate) "Everyone due takes turns: whoever was reminded longest ago goes first."
+                else "The most overdue people every day, even if it's the same ones.", style = MaterialTheme.typography.bodySmall)
+            Text("Unreplied messages always come before regular check-ins.", style = MaterialTheme.typography.bodySmall)
+        }
         var vary by remember { mutableStateOf(ctx.varyTiming) }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {

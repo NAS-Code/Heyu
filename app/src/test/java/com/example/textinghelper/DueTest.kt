@@ -14,8 +14,8 @@ class DueTest {
         ContactStats(id, "P$id", "+1555000$id", 10, 10, now - lastDaysAgo * DAY,
             lastOutDaysAgo?.let { now - it * DAY }, lastFromMe)
 
-    private fun names(settings: List<ContactSetting>, vararg st: ContactStats, vary: Boolean = false) =
-        findDue(settings, st.associateBy { it.contactId }, now, vary).map { it.setting.name }
+    private fun names(settings: List<ContactSetting>, vararg st: ContactStats, vary: Boolean = false, rotate: Boolean = false) =
+        findDue(settings, st.associateBy { it.contactId }, now, vary, rotate).map { it.setting.name }
 
     @Test fun dueWhenPastFrequency() {
         assertEquals(listOf("P1"), names(listOf(setting(1, 7)), stats(1, 7, 7, true)))
@@ -107,5 +107,17 @@ class DueTest {
         assertEquals("You're all caught up.", nobodyText(null, null))
         assertEquals("You're all caught up. Next up: Ben tomorrow.", nobodyText("Ben", 1))
         assertEquals("You're all caught up. Next up: Emily in 4 days.", nobodyText("Emily", 4))
+    }
+
+    @Test fun rotateTakesTurns() {
+        // P1 most overdue, P3 least. P1 and P2 were reminded yesterday, P3 two days ago, P4 never.
+        val s = listOf(setting(1, 7, reminded = now - DAY), setting(2, 7, reminded = now - DAY),
+            setting(3, 7, reminded = now - 2 * DAY), setting(4, 7))
+        val st = arrayOf(stats(1, 30, 30, true), stats(2, 20, 20, true), stats(3, 10, 10, true), stats(4, 15, 15, true))
+        assertEquals(listOf("P1", "P2", "P4", "P3"), names(s, *st))                 // most overdue first
+        assertEquals(listOf("P4", "P3", "P1", "P2"), names(s, *st, rotate = true))  // longest since reminded first
+        // Unreplied still beats due when rotating, even if reminded more recently.
+        val u = listOf(setting(1, 7), setting(5, 7, reminded = now - DAY))
+        assertEquals(listOf("P5", "P1"), names(u, stats(1, 30, 30, true), stats(5, 1, 3, false), rotate = true))
     }
 }
