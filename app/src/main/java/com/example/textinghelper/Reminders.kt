@@ -37,6 +37,9 @@ suspend fun runCheck(ctx: Context, ignoreRecent: Boolean = false): String = with
     if (ctx.varyTiming) for (s in dao.list()) rollJitter(s, lastOut(s, stats[s.contactId]), Random.Default)?.let { dao.save(it) }
     val all = findDue(dao.list(), stats, now, ignoreRecent, vary = ctx.varyTiming)
     val picks = all.take(ctx.dailyCap)
+    // Due people held back by the no-repeat rule, so the daily status can say why they weren't sent.
+    val heldBack = if (ignoreRecent) emptyList() else
+        findDue(dao.list(), stats, now, ignoreRecent = true, vary = ctx.varyTiming).map { it.setting.name } - all.map { it.setting.name }.toSet()
     val aiErrors = mutableListOf<String>()
     var tokensIn = 0
     var tokensOut = 0
@@ -55,6 +58,8 @@ suspend fun runCheck(ctx: Context, ignoreRecent: Boolean = false): String = with
         dao.log(ReminderLog(contactId = r.setting.contactId, time = now, reason = if (r.unreplied) "unreplied" else "due",
             inputTokens = result?.inputTokens, outputTokens = result?.outputTokens, images = result?.images))
     }
+    // The real daily check (not "Run check now") records what it did, shown under the reminder time in Settings.
+    if (!ignoreRecent) ctx.saveLastCheck(checkStatus(picks.map { it.setting.name }, heldBack, all.size - picks.size, aiErrors.size))
     "${all.size} due, sent ${picks.size}: " + picks.joinToString { it.setting.name }.ifEmpty { "nobody" } +
         (if (ctx.apiKey == null) "\nNo API key set, so no suggestions." else "") +
         (if (tokensIn > 0) "\nAI usage: ${"%,d".format(tokensIn)} in / ${"%,d".format(tokensOut)} out tokens (~$${"%.3f".format(costUsd(tokensIn, tokensOut))})" else "") +
@@ -63,10 +68,27 @@ suspend fun runCheck(ctx: Context, ignoreRecent: Boolean = false): String = with
 
 class DailyWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, params) {
     override suspend fun doWork(): Result {
-        runCheck(applicationContext)
+        try {
+            runCheck(applicationContext)
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            applicationContext.saveLastCheck("failed: ${e.message}")
+        }
         return Result.success()
     }
 }
+
+/** One line for Settings: what the last daily check did and why. Pure, so it's unit tested. */
+fun checkStatus(sent: List<String>, heldBack: List<String>, overCap: Int, aiFailed: Int): String =
+    listOfNotNull(
+        if (sent.isEmpty()) "sent 0" else "sent ${sent.size}: ${sent.joinToString()}",
+        heldBack.takeIf { it.isNotEmpty() }?.let { "held back (reminded in the last 3 days): ${it.joinToString()}" },
+        overCap.takeIf { it > 0 }?.let { "$it more over the daily cap" },
+        aiFailed.takeIf { it > 0 }?.let { "no suggestion for $it (AI failed)" },
+    ).joinToString(" · ")
+
+fun Context.saveLastCheck(status: String) =
+    prefs().edit().putLong("lastCheckAt", System.currentTimeMillis()).putString("lastCheck", status).apply()
 
 // ponytail: a 24h periodic job can drift from the set time by a few minutes (or more in battery-saver
 // Doze). Saving the time in Settings re-anchors it. Switch to exact alarms if drift ever bothers you.

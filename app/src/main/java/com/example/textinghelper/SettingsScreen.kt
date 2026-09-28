@@ -44,6 +44,11 @@ fun SettingsScreen() {
                 }, hour, minute, false).show()
             }) { Text(LocalTime.of(hour, minute).format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))) }
         }
+        val lastAt = ctx.prefs().getLong("lastCheckAt", 0)
+        Text(if (lastAt == 0L) "Last daily check: hasn't run yet" else "Last daily check: " + android.text.format.DateUtils.formatDateTime(
+            ctx, lastAt, android.text.format.DateUtils.FORMAT_SHOW_WEEKDAY or android.text.format.DateUtils.FORMAT_ABBREV_WEEKDAY or
+                android.text.format.DateUtils.FORMAT_SHOW_TIME) + " · " + ctx.prefs().getString("lastCheck", ""),
+            style = MaterialTheme.typography.bodySmall)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Max people per daily check", Modifier.weight(1f))
             fun setCap(n: Int) { cap = n.coerceIn(1, 20); ctx.prefs().edit().putInt("cap", cap).apply() }

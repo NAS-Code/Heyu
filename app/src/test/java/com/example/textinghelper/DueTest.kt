@@ -98,4 +98,11 @@ class DueTest {
         // Shortened a day: due at 6 days.
         assertEquals(listOf("P1"), names(listOf(setting(1, 7).copy(jitterDays = -1)), stats(1, 6, 6, true), vary = true))
     }
+
+    @Test fun lastCheckStatusExplainsWhy() {
+        assertEquals("sent 0 · held back (reminded in the last 3 days): Luke, Mom, Billy",
+            checkStatus(emptyList(), listOf("Luke", "Mom", "Billy"), 0, 0))
+        assertEquals("sent 2: Ben, Emily · 1 more over the daily cap · no suggestion for 1 (AI failed)",
+            checkStatus(listOf("Ben", "Emily"), emptyList(), 1, 1))
+    }
 }
