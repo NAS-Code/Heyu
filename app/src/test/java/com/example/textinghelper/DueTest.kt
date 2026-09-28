@@ -105,4 +105,12 @@ class DueTest {
         assertEquals("sent 2: Ben, Emily · 1 more over the daily cap · no suggestion for 1 (AI failed)",
             checkStatus(listOf("Ben", "Emily"), emptyList(), 1, 1))
     }
+
+    @Test fun nobodyNotificationText() {
+        assertEquals("You're all caught up.", nobodyText(emptyList(), null, null))
+        assertEquals("You're caught up. Luke, Mom were reminded in the last few days. Next up: Ben tomorrow.",
+            nobodyText(listOf("Luke", "Mom"), "Ben", 1))
+        assertEquals("You're caught up. Luke was reminded in the last few days. Next up: Emily in 4 days.",
+            nobodyText(listOf("Luke"), "Emily", 4))
+    }
 }

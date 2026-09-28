@@ -60,6 +60,11 @@ suspend fun runCheck(ctx: Context, ignoreRecent: Boolean = false): String = with
     }
     // The real daily check (not "Run check now") records what it did, shown under the reminder time in Settings.
     if (!ignoreRecent) ctx.saveLastCheck(checkStatus(picks.map { it.setting.name }, heldBack, all.size - picks.size, aiErrors.size))
+    // The daily check always says something, so a quiet day doesn't look like a broken app.
+    if (!ignoreRecent && picks.isEmpty()) {
+        val next = upcoming(dao.list(), stats, now, ctx.varyTiming).firstOrNull()
+        notifyNobody(ctx, nobodyText(heldBack, next?.setting?.name, next?.inDays))
+    }
     "${all.size} due, sent ${picks.size}: " + picks.joinToString { it.setting.name }.ifEmpty { "nobody" } +
         (if (ctx.apiKey == null) "\nNo API key set, so no suggestions." else "") +
         (if (tokensIn > 0) "\nAI usage: ${"%,d".format(tokensIn)} in / ${"%,d".format(tokensOut)} out tokens (~$${"%.3f".format(costUsd(tokensIn, tokensOut))})" else "") +
@@ -114,13 +119,39 @@ fun reasonText(r: Reminder) = when {
     else -> "Last texted ${r.days} days ago · ${tierLabel(r.setting.frequencyDays)}"
 }
 
-fun notify(ctx: Context, r: Reminder, suggestions: List<Suggestion>, recap: String = "") {
+private fun channel(ctx: Context): NotificationManager {
     val nm = ctx.getSystemService(NotificationManager::class.java)
     // A channel's sound/vibration settings are fixed once created, so turning vibration on needs a new
     // channel id. The old one ("reminders") had vibration off.
     nm.deleteNotificationChannel("reminders")
     nm.createNotificationChannel(
         NotificationChannel(CHANNEL, "Reminders", NotificationManager.IMPORTANCE_DEFAULT).apply { enableVibration(true) })
+    return nm
+}
+
+/** Body of the "nobody to text" notification. Pure, so it's unit tested. */
+fun nobodyText(heldBack: List<String>, nextName: String?, nextInDays: Long?): String = listOfNotNull(
+    if (heldBack.isEmpty()) "You're all caught up."
+    else "You're caught up. ${heldBack.joinToString()} ${if (heldBack.size == 1) "was" else "were"} reminded in the last few days.",
+    nextName?.let { "Next up: $it ${if (nextInDays == 1L) "tomorrow" else "in $nextInDays days"}." },
+).joinToString(" ")
+
+private const val NOBODY_ID = 0 // contact ids are positive, the test notification is -1
+
+private fun notifyNobody(ctx: Context, text: String) {
+    val open = PendingIntent.getActivity(ctx, 0, Intent(ctx, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
+    channel(ctx).notify(NOBODY_ID, Notification.Builder(ctx, CHANNEL)
+        .setSmallIcon(android.R.drawable.sym_action_chat)
+        .setContentTitle("Nobody to text today")
+        .setContentText(text)
+        .setStyle(Notification.BigTextStyle().bigText(text))
+        .setContentIntent(open)
+        .setAutoCancel(true)
+        .build())
+}
+
+fun notify(ctx: Context, r: Reminder, suggestions: List<Suggestion>, recap: String = "") {
+    val nm = channel(ctx)
     val s = r.setting
     val id = s.contactId.toInt()
     val title = (if (r.unreplied) "Reply to " else "Text ") + s.name
