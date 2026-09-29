@@ -16,8 +16,8 @@ To change the logo, edit the constants in `make_icon.py` and run it (Python 3, s
 python docs/logo/make_icon.py
 ```
 
-It overwrites `app/src/main/res/drawable/ic_launcher_foreground.xml` and `ic_launcher_background.xml`,
-plus the two SVGs here. Don't hand-edit those four files.
+It overwrites `app/src/main/res/drawable/ic_launcher_foreground.xml`, `ic_launcher_background.xml` and
+`ic_notification.xml`, plus the two SVGs here. Don't hand-edit those files.
 
 To export a PNG, open either SVG in a browser, Figma, Inkscape or Illustrator and export at any size.
 They are vectors, so every size is sharp. The SVGs are 1080×1080 px by default.
@@ -83,3 +83,8 @@ bottom line mirrors this, coming out of the bottom tail.
 `@drawable/ic_launcher_background`, with `@drawable/ic_launcher_foreground` used as both the foreground and
 the monochrome (themed) layer. There are no PNG launcher icons, because the app's minimum Android version
 always uses the adaptive vector.
+
+The **status-bar icon** (`@drawable/ic_notification`) is the same white artwork, cropped to the 56×56 square
+centered on the neck (x and y 26–82) so it fills Android's 24dp notification slot. Android only uses its shape.
+Notifications also set their accent color to the background orange, so the icon and app name show in orange
+in the notification shade.

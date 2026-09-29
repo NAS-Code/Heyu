@@ -135,6 +135,7 @@ fun nobodyText(nextName: String?, nextInDays: Long?): String = listOfNotNull(
     nextName?.let { "Next up: $it ${if (nextInDays == 1L) "tomorrow" else "in $nextInDays days"}." },
 ).joinToString(" ")
 
+private const val HEYU_ORANGE = 0xFFFF7518.toInt() // logo background, see docs/logo
 private const val NOBODY_ID = 0 // contact ids are positive, the test notification is -1
 private const val SUMMARY_CHANNEL = "summary"
 
@@ -144,7 +145,8 @@ private fun notifyNobody(ctx: Context, text: String) {
     // Its own low-importance channel: shows up without sound or vibration, and can be turned off separately.
     nm.createNotificationChannel(NotificationChannel(SUMMARY_CHANNEL, "Daily summary", NotificationManager.IMPORTANCE_LOW))
     nm.notify(NOBODY_ID, Notification.Builder(ctx, SUMMARY_CHANNEL)
-        .setSmallIcon(android.R.drawable.sym_action_chat)
+        .setSmallIcon(R.drawable.ic_notification)
+        .setColor(HEYU_ORANGE)
         .setContentTitle("Nobody to text today")
         .setContentText(text)
         .setStyle(Notification.BigTextStyle().bigText(text))
@@ -179,7 +181,8 @@ fun notify(ctx: Context, r: Reminder, suggestions: List<Suggestion>, recap: Stri
     val openPi = PendingIntent.getActivity(ctx, 0, open, flags)
 
     val n = Notification.Builder(ctx, CHANNEL)
-        .setSmallIcon(android.R.drawable.sym_action_chat)
+        .setSmallIcon(R.drawable.ic_notification)
+        .setColor(HEYU_ORANGE)
         .setContentTitle(title)
         .setContentText(first?.let { "“$it”" } ?: text)
         .apply { if (first != null) setStyle(Notification.BigTextStyle().bigText("“$first”\n\n$text")) }
