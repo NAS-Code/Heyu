@@ -5,7 +5,7 @@ touch with each person. Once a day Heyu checks your messages, tells you who you'
 waiting on a reply), and suggests a text written in your own voice by Claude.
 
 > Status: personal tool, sideloaded onto a Pixel. Not on the Play Store (see [Launch considerations](#launch-considerations)).
-> Repo and package are still named `Texting-Helper` / `com.example.textinghelper`; the app itself is called Heyu.
+> The Android package is still `com.example.textinghelper` (renaming it would reset the app's data on the phone).
 
 ---
 
