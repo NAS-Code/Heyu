@@ -104,7 +104,8 @@ Counts unread texts (the providers' `read` flag) from **saved contacts in 1:1 ch
 older unread messages are ignored, since restored history often arrives marked unread.
 - **N hours after a text arrives:** a 15-minute exact-alarm scan (Android doesn't announce new RCS messages)
   reminds once per burst, timed from the first unread text since the last reminder. A notification clears itself
-  once the messages are read. Tapping opens the conversation.
+  once the messages are read. Tapping opens the conversation. **Quiet hours** (default 10 PM–8 AM) hold these
+  reminders until the window ends.
 - **Daily unread reminder:** one summary at its own time, only if someone's waiting.
 
 ## AI suggestions

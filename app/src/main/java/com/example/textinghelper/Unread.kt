@@ -38,6 +38,13 @@ val Context.unreadDelayHours get() = prefs().getInt("unreadDelayHours", 3)
 val Context.unreadDailyOn get() = prefs().getBoolean("unreadDailyOn", true)
 val Context.unreadHour get() = prefs().getInt("unreadHour", 12)
 val Context.unreadMinute get() = prefs().getInt("unreadMinute", 0)
+val Context.quietOn get() = prefs().getBoolean("quietOn", true)
+val Context.quietStart get() = prefs().getInt("quietStart", 22 * 60) // minutes after midnight
+val Context.quietEnd get() = prefs().getInt("quietEnd", 8 * 60)
+
+/** Is [minute] (of the day) inside quiet hours? Handles ranges past midnight. Pure, so it's unit tested. */
+fun inQuietHours(minute: Int, start: Int, end: Int): Boolean =
+    if (start <= end) minute in start until end else minute >= start || minute < end
 
 data class UnreadThread(val threadId: Long, val name: String, val phone: String, val dates: List<Long>) {
     val oldest get() = dates.min()
@@ -125,7 +132,9 @@ private fun scanUnread(ctx: Context, threads: List<UnreadThread>) {
         .filter { it !in unreadIds }.forEach { nm.cancel(unreadNotifId(it)) } // read since: clear it
 
     val now = System.currentTimeMillis()
-    val due = dueUnread(threads, now, ctx.unreadDelayHours, watermark)
+    // Quiet hours: hold new reminders (the watermark isn't advanced, so they go out at the first scan after).
+    val quiet = ctx.quietOn && LocalTime.now().let { inQuietHours(it.hour * 60 + it.minute, ctx.quietStart, ctx.quietEnd) }
+    val due = if (quiet) emptyList() else dueUnread(threads, now, ctx.unreadDelayHours, watermark)
     due.forEach { notifyUnread(ctx, it, now) }
     p.edit()
         .putStringSet("unreadWatermark", (watermark + due.associate { it.threadId to it.dates.max() }).map { "${it.key}:${it.value}" }.toSet())
@@ -197,6 +206,24 @@ fun UnreadSettings() {
         TextButton(enabled = delayOn, onClick = { hours = (hours - 1).coerceIn(1, 12); save { putInt("unreadDelayHours", hours) } }) { Text("−") }
         TextButton(enabled = delayOn, onClick = { hours = (hours + 1).coerceIn(1, 12); save { putInt("unreadDelayHours", hours) } }) { Text("+") }
         Switch(delayOn, { delayOn = it; save { putBoolean("unreadDelayOn", it) } })
+    }
+    var quietOn by remember { mutableStateOf(ctx.quietOn) }
+    var quietStart by remember { mutableIntStateOf(ctx.quietStart) }
+    var quietEnd by remember { mutableIntStateOf(ctx.quietEnd) }
+    fun fmtMin(m: Int) = LocalTime.of(m / 60, m % 60).format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))
+    fun pickMin(current: Int, onPick: (Int) -> Unit) =
+        TimePickerDialog(ctx, { _, h, m -> onPick(h * 60 + m) }, current / 60, current % 60, false).show()
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text("Quiet hours")
+            Text("No \"hours after\" reminders in this window; they wait until it ends.", style = MaterialTheme.typography.bodySmall)
+        }
+        Switch(quietOn, { quietOn = it; save { putBoolean("quietOn", it) } })
+    }
+    if (quietOn) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedButton(onClick = { pickMin(quietStart) { quietStart = it; save { putInt("quietStart", it) } } }) { Text(fmtMin(quietStart)) }
+        Text("to")
+        OutlinedButton(onClick = { pickMin(quietEnd) { quietEnd = it; save { putInt("quietEnd", it) } } }) { Text(fmtMin(quietEnd)) }
     }
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text("Daily unread reminder", Modifier.weight(1f))

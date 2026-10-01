@@ -23,4 +23,14 @@ class UnreadTest {
         assertEquals(emptyList<String>(), due(thread(1, 5, 4, 1), watermark = reminded))
         assertEquals(listOf("P1"), due(thread(1, 8, 7, 4), watermark = mapOf(1L to now - 7 * HOUR)))
     }
+
+    @Test fun quietHoursWrapPastMidnight() {
+        val (ten, eight) = 22 * 60 to 8 * 60
+        assertEquals(true, inQuietHours(23 * 60, ten, eight))
+        assertEquals(true, inQuietHours(2 * 60, ten, eight))
+        assertEquals(false, inQuietHours(8 * 60, ten, eight)) // ends at 8:00
+        assertEquals(false, inQuietHours(12 * 60, ten, eight))
+        assertEquals(true, inQuietHours(13 * 60, 12 * 60, 14 * 60)) // same-day window
+        assertEquals(false, inQuietHours(15 * 60, 12 * 60, 14 * 60))
+    }
 }
