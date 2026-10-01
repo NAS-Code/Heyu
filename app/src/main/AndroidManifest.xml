@@ -29,6 +29,7 @@
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
         <activity android:name=".SuggestionsActivity" android:exported="false" android:excludeFromRecents="true" />
         <receiver android:name=".ActionReceiver" android:exported="false" />
+        <receiver android:name=".UnreadAlarm" android:exported="false" />
         <receiver android:name=".DailyAlarm" android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />

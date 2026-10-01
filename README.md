@@ -33,6 +33,8 @@ waiting on a reply), and suggests a text written in your own voice by Claude.
   Everyone starts on Ignore; you opt people in.
 - **Daily reminder** at a time you choose, capped at a set number of people per day.
 - **"You never replied" reminders** that take priority over regular check-ins.
+- **Unread reminders** (optional): a nudge N hours (1–12) after a text you haven't opened yet, and/or a daily
+  "people waiting on you" summary at its own time. No suggestion, no API call.
 - **Suggested texts from Claude,** written in your style from your recent conversation with that person
   (including photos and video frames), with a recap of what's already happened so it doesn't ask about
   finished plans.
@@ -95,6 +97,15 @@ alarm-clock apps use, so it fires on time even when the phone is idle. Each alar
 day's; the alarm is also re-armed when the time is changed, the app is opened, the phone restarts, or the app is
 updated. Opening the app never runs a check itself. (An earlier version used a periodic WorkManager job, which Android
 could hold overnight and then run the moment the app was opened.)
+
+### Unread reminders
+In [`Unread.kt`](app/src/main/java/com/example/textinghelper/Unread.kt). Settings → Unread Reminders (off by default).
+Counts unread texts (the providers' `read` flag) from **saved contacts in 1:1 chats received in the last 7 days**;
+older unread messages are ignored, since restored history often arrives marked unread.
+- **N hours after a text arrives:** a 15-minute exact-alarm scan (Android doesn't announce new RCS messages)
+  reminds once per burst, timed from the first unread text since the last reminder. A notification clears itself
+  once the messages are read. Tapping opens the conversation.
+- **Daily unread reminder:** one summary at its own time, only if someone's waiting.
 
 ## AI suggestions
 

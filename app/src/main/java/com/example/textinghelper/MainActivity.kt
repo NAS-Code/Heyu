@@ -31,6 +31,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         scheduleDaily(this) // re-arms the daily alarm; never runs a check itself
+        scheduleUnread(this)
         setContent {
             TextingHelperTheme {
                 Surface(Modifier.fillMaxSize()) {

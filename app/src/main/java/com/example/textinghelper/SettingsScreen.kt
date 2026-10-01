@@ -78,6 +78,9 @@ fun SettingsScreen() {
             Switch(vary, { vary = it; ctx.prefs().edit().putBoolean("vary", it).apply() })
         }
         HorizontalDivider()
+        SectionTitle("Unread Reminders")
+        UnreadSettings()
+        HorizontalDivider()
         SectionTitle("Claude Settings")
         ApiKeySection()
         LatestSuggestions()
@@ -144,7 +147,7 @@ fun PromptDialog(title: String, text: String, onClose: () -> Unit) = AlertDialog
 )
 
 @Composable
-private fun SectionTitle(text: String) =
+fun SectionTitle(text: String) =
     Text(text, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
 
 /** Collapsible: each person's most recent suggestions, Claude's recap, and the exact prompt sent. */

@@ -45,7 +45,7 @@ fun loadCachedDiagnostic(ctx: Context): Diagnostic? = try {
     null
 }
 
-private fun Context.query(uri: String, cols: Array<String>, where: String? = null, sort: String? = null, each: (Cursor) -> Unit) {
+fun Context.query(uri: String, cols: Array<String>, where: String? = null, sort: String? = null, each: (Cursor) -> Unit) {
     contentResolver.query(Uri.parse(uri), cols, where, null, sort)?.use { c -> while (c.moveToNext()) each(c) }
 }
 
@@ -56,14 +56,13 @@ fun readDiagnostic(ctx: Context): Diagnostic = scanMessages(ctx).also { d ->
     try { java.io.ObjectOutputStream(ctx.cacheFile().outputStream()).use { it.writeObject(d) } } catch (_: Exception) {}
 }
 
-private fun scanMessages(ctx: Context): Diagnostic {
+/** Thread id -> the other person's number, or null if it's a group chat. */
+fun threadAddresses(ctx: Context): Map<Long, String?> {
     // Canonical addresses: id -> phone number. Threads reference these by id.
     val canonical = HashMap<String, String>()
     ctx.query("content://mms-sms/canonical-addresses", arrayOf("_id", "address")) {
         canonical[it.getString(0)] = it.getString(1) ?: ""
     }
-
-    // Thread id -> the other person's number, or null if it's a group chat.
     val threadAddr = HashMap<Long, String?>()
     ctx.query("content://mms-sms/conversations?simple=true", arrayOf("_id", "recipient_ids")) {
         val ids = (it.getString(1) ?: "").split(" ").filter(String::isNotBlank)
@@ -72,6 +71,21 @@ private fun scanMessages(ctx: Context): Diagnostic {
         val addr = if (ids.size == 1) canonical[ids[0]] else null
         threadAddr[it.getLong(0)] = addr?.takeUnless { '@' in it }
     }
+    return threadAddr
+}
+
+/** Normalized number -> (contact id, name). A contact with 2 numbers maps both to one id. */
+fun contactsByNumber(ctx: Context): Map<String, Pair<Long, String>> {
+    val contactByNumber = HashMap<String, Pair<Long, String>>()
+    ctx.query(Phone.CONTENT_URI.toString(), arrayOf(Phone.CONTACT_ID, Phone.DISPLAY_NAME, Phone.NUMBER)) {
+        val num = it.getString(2) ?: return@query
+        contactByNumber[normalize(num)] = it.getLong(0) to (it.getString(1) ?: num)
+    }
+    return contactByNumber
+}
+
+private fun scanMessages(ctx: Context): Diagnostic {
+    val threadAddr = threadAddresses(ctx)
 
     val msgs = ArrayList<Msg>()
     var smsRows = 0
@@ -87,12 +101,7 @@ private fun scanMessages(ctx: Context): Diagnostic {
         msgs += Msg(it.getLong(0), it.getLong(1) * 1000, it.getInt(2) == 2)
     }
 
-    // Normalized number -> (contact id, name). A contact with 2 numbers maps both to one id.
-    val contactByNumber = HashMap<String, Pair<Long, String>>()
-    ctx.query(Phone.CONTENT_URI.toString(), arrayOf(Phone.CONTACT_ID, Phone.DISPLAY_NAME, Phone.NUMBER)) {
-        val num = it.getString(2) ?: return@query
-        contactByNumber[normalize(num)] = it.getLong(0) to (it.getString(1) ?: num)
-    }
+    val contactByNumber = contactsByNumber(ctx)
 
     class Acc(val name: String, val phone: String) {
         val threads = LinkedHashSet<Long>()

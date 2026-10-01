@@ -122,6 +122,7 @@ class DailyAlarm : BroadcastReceiver() {
     override fun onReceive(ctx: Context, intent: Intent) {
         if (intent.action == null) WorkManager.getInstance(ctx).enqueueUniqueWork("dailyRun", ExistingWorkPolicy.KEEP,
             OneTimeWorkRequestBuilder<DailyWorker>().setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST).build())
+        else scheduleUnread(ctx) // reboot or app update: unread alarms were cleared too
         scheduleDaily(ctx)
     }
 }
