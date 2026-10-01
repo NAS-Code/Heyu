@@ -15,21 +15,16 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** Settings → Text Style Settings: collapsed by default; pick sample chats per style, build, review/edit. */
+/** Settings → Text Style Settings: pick sample chats per style, build, review/edit. */
 @Composable
 fun TextStyleSettings() {
     val ctx = LocalContext.current
-    var expanded by remember { mutableStateOf(false) }
     var contacts by remember { mutableStateOf<List<ContactStats>?>(null) }
-    LaunchedEffect(expanded) {
-        if (expanded && contacts == null)
-            contacts = withContext(Dispatchers.IO) { (loadCachedDiagnostic(ctx) ?: readDiagnostic(ctx)).contacts }
-    }
+    LaunchedEffect(Unit) { contacts = withContext(Dispatchers.IO) { (loadCachedDiagnostic(ctx) ?: readDiagnostic(ctx)).contacts } }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        CollapsibleHeader("Friends, Family and Professional", Style.entries.joinToString(" · ") { st ->
-            st.label + if (ctx.loadStyle(st).builtAt != null) " ✓" else " (not built)"
-        }, expanded) { expanded = !expanded }
-        if (expanded) {
+        Text(Style.entries.joinToString(" · ") { st -> st.label + if (ctx.loadStyle(st).builtAt != null) " ✓" else " (not built)" },
+            style = MaterialTheme.typography.bodySmall)
+        run {
             Text("Pick up to $MAX_STYLE_SAMPLES chats per style that show how you text those people. Claude studies up to 250 " +
                 "of your own messages from each and builds a style used for every suggestion. Contacts without a style use Friends.",
                 style = MaterialTheme.typography.bodySmall)

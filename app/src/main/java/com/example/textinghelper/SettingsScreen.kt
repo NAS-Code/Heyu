@@ -7,6 +7,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -32,96 +33,101 @@ fun SettingsScreen() {
     val scope = rememberCoroutineScope()
 
     Column(Modifier.verticalScroll(rememberScrollState()).padding(top = 16.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        SectionTitle("Notification Settings")
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Daily reminder time", Modifier.weight(1f))
+        Section("Notification Settings") {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Daily reminder time", Modifier.weight(1f))
+                OutlinedButton(onClick = {
+                    // Android's built-in time picker dialog
+                    TimePickerDialog(ctx, { _, h, m ->
+                        hour = h; minute = m
+                        ctx.prefs().edit().putInt("hour", h).putInt("minute", m).apply()
+                        scheduleDaily(ctx)
+                    }, hour, minute, false).show()
+                }) { Text(LocalTime.of(hour, minute).format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))) }
+            }
+            val lastAt = ctx.prefs().getLong("lastCheckAt", 0)
+            Text(if (lastAt == 0L) "Last daily check: hasn't run yet" else "Last daily check: " + android.text.format.DateUtils.formatDateTime(
+                ctx, lastAt, android.text.format.DateUtils.FORMAT_SHOW_WEEKDAY or android.text.format.DateUtils.FORMAT_ABBREV_WEEKDAY or
+                    android.text.format.DateUtils.FORMAT_SHOW_TIME) + " · " + ctx.prefs().getString("lastCheck", ""),
+                style = MaterialTheme.typography.bodySmall)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Max people per daily check", Modifier.weight(1f))
+                fun setCap(n: Int) { cap = n.coerceIn(1, 20); ctx.prefs().edit().putInt("cap", cap).apply() }
+                TextButton(onClick = { setCap(cap - 1) }) { Text("−") }
+                Text("$cap")
+                TextButton(onClick = { setCap(cap + 1) }) { Text("+") }
+            }
+            var rotate by remember { mutableStateOf(ctx.rotateReminders) }
+            Column {
+                Text("When more people are due than the daily cap")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    fun pick(v: Boolean) { rotate = v; ctx.prefs().edit().putBoolean("rotate", v).apply() }
+                    FilterChip(rotate, onClick = { pick(true) }, label = { Text("Rotate") })
+                    FilterChip(!rotate, onClick = { pick(false) }, label = { Text("Most overdue first") })
+                }
+                Text(if (rotate) "Everyone due takes turns: whoever was reminded longest ago goes first."
+                    else "The most overdue people every day, even if it's the same ones.", style = MaterialTheme.typography.bodySmall)
+                Text("Unreplied messages always come before regular check-ins.", style = MaterialTheme.typography.bodySmall)
+            }
+            var vary by remember { mutableStateOf(ctx.varyTiming) }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Vary reminder timing")
+                    Text("Every other reminder comes a little early or late so you're not texting on an obvious schedule: " +
+                        "±1 day for weekly-plus cadences, ±2–3 days for monthly-plus.", style = MaterialTheme.typography.bodySmall)
+                }
+                Switch(vary, { vary = it; ctx.prefs().edit().putBoolean("vary", it).apply() })
+            }
+        }
+        HorizontalDivider()
+        Section("Unread Reminders") {
+            UnreadSettings()
+        }
+        HorizontalDivider()
+        Section("Claude Settings") {
+            ApiKeySection()
+            LatestSuggestions()
+        }
+        HorizontalDivider()
+        Section("Text Style Settings") {
+            TextStyleSettings()
+        }
+        HorizontalDivider()
+        Section("Testing Settings") {
+            var recapOn by remember { mutableStateOf(ctx.showRecap) }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Show Claude's recap")
+                    Text("On the suggestions screen: what Claude thinks has happened and what's still open.", style = MaterialTheme.typography.bodySmall)
+                }
+                Switch(recapOn, { recapOn = it; ctx.prefs().edit().putBoolean("showRecap", it).apply() })
+            }
+            var promptOn by remember { mutableStateOf(ctx.showPromptButton) }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Show \"View prompt\" button")
+                    Text("On the suggestions screen: the exact text Claude was sent.", style = MaterialTheme.typography.bodySmall)
+                }
+                Switch(promptOn, { promptOn = it; ctx.prefs().edit().putBoolean("showPrompt", it).apply() })
+            }
             OutlinedButton(onClick = {
-                // Android's built-in time picker dialog
-                TimePickerDialog(ctx, { _, h, m ->
-                    hour = h; minute = m
-                    ctx.prefs().edit().putInt("hour", h).putInt("minute", m).apply()
-                    scheduleDaily(ctx)
-                }, hour, minute, false).show()
-            }) { Text(LocalTime.of(hour, minute).format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))) }
+                // Fake contact (id -1): Snooze/Done do nothing, Text opens Messages with no recipient.
+                val fake = ContactSetting(-1, "", "Test Person", 7)
+                notify(ctx, Reminder(fake, unreplied = false, days = 9),
+                    listOf(Suggestion("this is what a suggested text will look like", "check-in")),
+                    "This is where Claude's recap of the conversation appears.")
+            }) { Text("Send test notification") }
+            Button(enabled = !running, onClick = {
+                running = true
+                scope.launch {
+                    result = withContext(Dispatchers.IO) { runCheck(ctx) }
+                    running = false
+                }
+            }) { Text(if (running) "Checking…" else "Run check now") }
+            Text("Same as the daily check, right now. It doesn't update \"Last daily check\" or send the nobody-to-text notice.",
+                style = MaterialTheme.typography.bodySmall)
+            result?.let { Text(it) }
         }
-        val lastAt = ctx.prefs().getLong("lastCheckAt", 0)
-        Text(if (lastAt == 0L) "Last daily check: hasn't run yet" else "Last daily check: " + android.text.format.DateUtils.formatDateTime(
-            ctx, lastAt, android.text.format.DateUtils.FORMAT_SHOW_WEEKDAY or android.text.format.DateUtils.FORMAT_ABBREV_WEEKDAY or
-                android.text.format.DateUtils.FORMAT_SHOW_TIME) + " · " + ctx.prefs().getString("lastCheck", ""),
-            style = MaterialTheme.typography.bodySmall)
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Max people per daily check", Modifier.weight(1f))
-            fun setCap(n: Int) { cap = n.coerceIn(1, 20); ctx.prefs().edit().putInt("cap", cap).apply() }
-            TextButton(onClick = { setCap(cap - 1) }) { Text("−") }
-            Text("$cap")
-            TextButton(onClick = { setCap(cap + 1) }) { Text("+") }
-        }
-        var rotate by remember { mutableStateOf(ctx.rotateReminders) }
-        Column {
-            Text("When more people are due than the daily cap")
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                fun pick(v: Boolean) { rotate = v; ctx.prefs().edit().putBoolean("rotate", v).apply() }
-                FilterChip(rotate, onClick = { pick(true) }, label = { Text("Rotate") })
-                FilterChip(!rotate, onClick = { pick(false) }, label = { Text("Most overdue first") })
-            }
-            Text(if (rotate) "Everyone due takes turns: whoever was reminded longest ago goes first."
-                else "The most overdue people every day, even if it's the same ones.", style = MaterialTheme.typography.bodySmall)
-            Text("Unreplied messages always come before regular check-ins.", style = MaterialTheme.typography.bodySmall)
-        }
-        var vary by remember { mutableStateOf(ctx.varyTiming) }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("Vary reminder timing")
-                Text("Every other reminder comes a little early or late so you're not texting on an obvious schedule: " +
-                    "±1 day for weekly-plus cadences, ±2–3 days for monthly-plus.", style = MaterialTheme.typography.bodySmall)
-            }
-            Switch(vary, { vary = it; ctx.prefs().edit().putBoolean("vary", it).apply() })
-        }
-        HorizontalDivider()
-        SectionTitle("Unread Reminders")
-        UnreadSettings()
-        HorizontalDivider()
-        SectionTitle("Claude Settings")
-        ApiKeySection()
-        LatestSuggestions()
-        HorizontalDivider()
-        SectionTitle("Text Style Settings")
-        TextStyleSettings()
-        HorizontalDivider()
-        SectionTitle("Testing Settings")
-        var recapOn by remember { mutableStateOf(ctx.showRecap) }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("Show Claude's recap")
-                Text("On the suggestions screen: what Claude thinks has happened and what's still open.", style = MaterialTheme.typography.bodySmall)
-            }
-            Switch(recapOn, { recapOn = it; ctx.prefs().edit().putBoolean("showRecap", it).apply() })
-        }
-        var promptOn by remember { mutableStateOf(ctx.showPromptButton) }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("Show \"View prompt\" button")
-                Text("On the suggestions screen: the exact text Claude was sent.", style = MaterialTheme.typography.bodySmall)
-            }
-            Switch(promptOn, { promptOn = it; ctx.prefs().edit().putBoolean("showPrompt", it).apply() })
-        }
-        OutlinedButton(onClick = {
-            // Fake contact (id -1): Snooze/Done do nothing, Text opens Messages with no recipient.
-            val fake = ContactSetting(-1, "", "Test Person", 7)
-            notify(ctx, Reminder(fake, unreplied = false, days = 9),
-                listOf(Suggestion("this is what a suggested text will look like", "check-in")),
-                "This is where Claude's recap of the conversation appears.")
-        }) { Text("Send test notification") }
-        Button(enabled = !running, onClick = {
-            running = true
-            scope.launch {
-                result = withContext(Dispatchers.IO) { runCheck(ctx) }
-                running = false
-            }
-        }) { Text(if (running) "Checking…" else "Run check now") }
-        Text("Same as the daily check, right now. It doesn't update \"Last daily check\" or send the nobody-to-text notice.",
-            style = MaterialTheme.typography.bodySmall)
-        result?.let { Text(it) }
     }
 }
 
@@ -146,9 +152,16 @@ fun PromptDialog(title: String, text: String, onClose: () -> Unit) = AlertDialog
     confirmButton = { TextButton(onClick = onClose) { Text("Close") } },
 )
 
+/** A Settings section: tap the title to show or hide its contents. Starts collapsed. */
 @Composable
-fun SectionTitle(text: String) =
-    Text(text, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+private fun Section(title: String, content: @Composable ColumnScope.() -> Unit) {
+    var open by rememberSaveable { mutableStateOf(false) }
+    Row(Modifier.fillMaxWidth().clickable { open = !open }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+        Text(if (open) "▲" else "▼", color = MaterialTheme.colorScheme.primary)
+    }
+    if (open) Column(verticalArrangement = Arrangement.spacedBy(16.dp), content = content)
+}
 
 /** Collapsible: each person's most recent suggestions, Claude's recap, and the exact prompt sent. */
 @Composable
