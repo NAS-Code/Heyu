@@ -75,4 +75,21 @@ class SuggestTest {
         assertEquals(emptyList<Suggestion>(), parseSuggestions("sorry, I can't help"))
         assertEquals(emptyList<Suggestion>(), parseSuggestions("{not json}"))
     }
+
+    @Test fun stripsOnlyALeadingLaugh() {
+        assertEquals("It's been a minute!", stripLeadingLaugh("Hahaha it's been a minute!"))
+        assertEquals("we should get food", stripLeadingLaugh("lol we should get food"))
+        assertEquals("Dinner thu?", stripLeadingLaugh("HAHAHA 😂 dinner thu?"))
+        assertEquals("that was so funny haha", stripLeadingLaugh("that was so funny haha")) // only the start
+        assertEquals("Holy cow", stripLeadingLaugh("Holy cow"))                           // "Ho" isn't a laugh
+        assertEquals("lollipop time", stripLeadingLaugh("lollipop time"))                 // part of a word
+        assertEquals(null, stripLeadingLaugh("hahaha"))                                  // nothing left
+    }
+
+    @Test fun laughCounts() {
+        assertTrue(LAUGH.containsMatchIn("Your ex misses you lol"))
+        assertTrue(LAUGH.containsMatchIn("Fuck economics James 😂😂"))
+        assertTrue(!LAUGH.containsMatchIn("Hell yeah congrats king!"))
+        assertTrue(!LAUGH.containsMatchIn("Holy cow, lollipop"))
+    }
 }

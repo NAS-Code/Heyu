@@ -128,6 +128,11 @@ something says it was cancelled.
 (whole-word, any case) is thrown out; if they all are, Claude is asked once more with the word called out.
 Bans come from the "Never use" field and from notes like `don't use "yo"`.
 
+**Laughter** ("lol", "haha", 😂) is treated as a reaction, not a style tic: the prompt allows it only in reply to
+something funny or in a joke, and if you sent the last message (so there's nothing of theirs to laugh at), a
+leading "Hahaha"/"lol" is stripped in code. Style builds are given the real share of your messages that contain a
+laugh, so the description can't claim you laugh "constantly".
+
 The notification shows the first suggestion. Tapping it opens a screen with all of them, Claude's recap,
 and a "View prompt" button showing exactly what was sent. The recap and button can be turned off in Settings.
 
