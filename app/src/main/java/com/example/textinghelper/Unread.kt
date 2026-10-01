@@ -33,7 +33,6 @@ const val UNREAD_MAX_AGE = 7 * DAY // older unread texts are ignored (e.g. old m
 private const val SCAN_EVERY = 15 * 60_000L // Android doesn't announce new RCS messages, so we look
 
 val Context.unreadOn get() = prefs().getBoolean("unreadOn", false)
-val Context.unreadDelayOn get() = prefs().getBoolean("unreadDelayOn", true)
 val Context.unreadDelayHours get() = prefs().getInt("unreadDelayHours", 3)
 val Context.unreadDailyOn get() = prefs().getBoolean("unreadDailyOn", true)
 val Context.unreadHour get() = prefs().getInt("unreadHour", 12)
@@ -93,7 +92,7 @@ fun scheduleUnread(ctx: Context) {
         if (am.canScheduleExactAlarms()) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, unreadAlarm(ctx, kind))
         else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, unreadAlarm(ctx, kind))
 
-    if (ctx.unreadOn && ctx.unreadDelayOn) arm("scan", System.currentTimeMillis() + SCAN_EVERY) else am.cancel(unreadAlarm(ctx, "scan"))
+    if (ctx.unreadOn) arm("scan", System.currentTimeMillis() + SCAN_EVERY) else am.cancel(unreadAlarm(ctx, "scan"))
     if (ctx.unreadOn && ctx.unreadDailyOn) {
         val now = LocalDateTime.now()
         var next = now.toLocalDate().atTime(ctx.unreadHour, ctx.unreadMinute)
@@ -185,7 +184,6 @@ fun UnreadSettings() {
     val ctx = LocalContext.current
     val p = ctx.prefs()
     var on by remember { mutableStateOf(ctx.unreadOn) }
-    var delayOn by remember { mutableStateOf(ctx.unreadDelayOn) }
     var hours by remember { mutableIntStateOf(ctx.unreadDelayHours) }
     var dailyOn by remember { mutableStateOf(ctx.unreadDailyOn) }
     var hour by remember { mutableIntStateOf(ctx.unreadHour) }
@@ -202,10 +200,9 @@ fun UnreadSettings() {
     }
     if (!on) return
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Text("$hours ${if (hours == 1) "hour" else "hours"} after a text arrives", Modifier.weight(1f))
-        TextButton(enabled = delayOn, onClick = { hours = (hours - 1).coerceIn(1, 12); save { putInt("unreadDelayHours", hours) } }) { Text("−") }
-        TextButton(enabled = delayOn, onClick = { hours = (hours + 1).coerceIn(1, 12); save { putInt("unreadDelayHours", hours) } }) { Text("+") }
-        Switch(delayOn, { delayOn = it; save { putBoolean("unreadDelayOn", it) } })
+        Text("Remind me $hours ${if (hours == 1) "hour" else "hours"} after a text arrives", Modifier.weight(1f))
+        TextButton(onClick = { hours = (hours - 1).coerceIn(1, 12); save { putInt("unreadDelayHours", hours) } }) { Text("−") }
+        TextButton(onClick = { hours = (hours + 1).coerceIn(1, 12); save { putInt("unreadDelayHours", hours) } }) { Text("+") }
     }
     var quietOn by remember { mutableStateOf(ctx.quietOn) }
     var quietStart by remember { mutableIntStateOf(ctx.quietStart) }
