@@ -49,7 +49,7 @@ waiting on a reply), and suggests a text written in your own voice by Claude.
 
 ```mermaid
 flowchart LR
-    A[Daily job<br/>WorkManager] --> B[Read SMS/MMS/RCS<br/>content providers]
+    A[Daily exact alarm<br/>AlarmManager] --> B[Read SMS/MMS/RCS<br/>content providers]
     B --> C[Match threads to contacts<br/>skip group chats]
     C --> D[Who's due?<br/>Due.kt]
     D --> E[For each pick:<br/>last 75 messages + style]
@@ -90,8 +90,11 @@ All in [`Due.kt`](app/src/main/java/com/example/textinghelper/Due.kt) (pure Kotl
 | **Changing a cadence** | A fresh start: clears Done, snooze and the no-repeat window, so the clock goes back to your last real text. |
 | **Varied timing** (on by default) | Each cycle (starting when you text them or tap Done) alternates shifted / normal. Shifts are random earlier or later: ±1 day for 7–29 day cadences, ±2–3 days for 30+, none under a week. Unreplied reminders are never shifted. |
 
-The daily job is a 24-hour periodic WorkManager task anchored to your chosen time. Android may run it a few
-minutes late, more so in battery saver, so the Home screen offers to exempt the app from battery optimization.
+The daily check runs from an **exact alarm** at your chosen time (`DailyAlarm` in `Reminders.kt`), the same mechanism
+alarm-clock apps use, so it fires on time even when the phone is idle. Each alarm runs the check and arms the next
+day's; the alarm is also re-armed when the time is changed, the app is opened, the phone restarts, or the app is
+updated. Opening the app never runs a check itself. (An earlier version used a periodic WorkManager job, which Android
+could hold overnight and then run the moment the app was opened.)
 
 ## AI suggestions
 
@@ -256,7 +259,7 @@ Measured on the dev phone (~184k messages, 354 contact numbers):
   store RCS where apps can't read it.
 - **Group chats are ignored,** including for context. If a plan was settled in a group chat, suggestions won't know.
 - **History** starts wherever the phone's message database starts (for example, when the phone was set up).
-- **Daily job timing** can drift by minutes, more in battery saver.
+- **Daily check timing** relies on an exact alarm; some manufacturers (Samsung, Xiaomi, OnePlus…) may still delay background work unless the app is also exempted in their own battery settings.
 - **Only exact words can be banned.** Free-text notes ("keep it short") are strong instructions, but the model can still slip.
 
 ## Launch considerations

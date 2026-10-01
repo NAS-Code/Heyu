@@ -30,7 +30,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        scheduleDaily(this, replace = false) // no-op if already scheduled
+        scheduleDaily(this) // re-arms the daily alarm; never runs a check itself
         setContent {
             TextingHelperTheme {
                 Surface(Modifier.fillMaxSize()) {

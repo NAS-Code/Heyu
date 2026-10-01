@@ -40,7 +40,7 @@ fun SettingsScreen() {
                 TimePickerDialog(ctx, { _, h, m ->
                     hour = h; minute = m
                     ctx.prefs().edit().putInt("hour", h).putInt("minute", m).apply()
-                    scheduleDaily(ctx, replace = true)
+                    scheduleDaily(ctx)
                 }, hour, minute, false).show()
             }) { Text(LocalTime.of(hour, minute).format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))) }
         }

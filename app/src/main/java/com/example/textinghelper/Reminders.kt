@@ -1,6 +1,7 @@
 package com.example.textinghelper
 
 import android.app.Activity
+import android.app.AlarmManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -15,9 +16,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.time.Duration
 import java.time.LocalDateTime
-import java.util.concurrent.TimeUnit
+import java.time.ZoneId
 import kotlin.random.Random
 
 // Plain SharedPreferences (a small key-value file) for non-secret settings.
@@ -95,20 +95,35 @@ fun checkStatus(sent: List<String>, overCap: Int, aiFailed: Int): String =
 fun Context.saveLastCheck(status: String) =
     prefs().edit().putLong("lastCheckAt", System.currentTimeMillis()).putString("lastCheck", status).apply()
 
-// ponytail: a 24h periodic job can drift from the set time by a few minutes (or more in battery-saver
-// Doze). Saving the time in Settings re-anchors it. Switch to exact alarms if drift ever bothers you.
-fun scheduleDaily(ctx: Context, replace: Boolean) {
+/**
+ * Arms an exact alarm for the next reminder time (today if it's still ahead, else tomorrow). Exact alarms fire
+ * on time even when the phone is idle; WorkManager's periodic jobs could be held for hours overnight and then
+ * run the moment the app was opened. Safe to call any time: it replaces the pending alarm.
+ */
+fun scheduleDaily(ctx: Context) {
+    WorkManager.getInstance(ctx).cancelUniqueWork("daily") // the old periodic job, from earlier versions
     val now = LocalDateTime.now()
     var next = now.toLocalDate().atTime(ctx.reminderHour, ctx.reminderMinute)
     if (!next.isAfter(now)) next = next.plusDays(1)
-    val req = PeriodicWorkRequestBuilder<DailyWorker>(1, TimeUnit.DAYS)
-        .setInitialDelay(Duration.between(now, next))
-        .build()
-    WorkManager.getInstance(ctx).enqueueUniquePeriodicWork(
-        "daily",
-        if (replace) ExistingPeriodicWorkPolicy.CANCEL_AND_REENQUEUE else ExistingPeriodicWorkPolicy.KEEP,
-        req,
-    )
+    val at = next.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+    val alarm = PendingIntent.getBroadcast(ctx, 0, Intent(ctx, DailyAlarm::class.java),
+        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+    val am = ctx.getSystemService(AlarmManager::class.java)
+    // USE_EXACT_ALARM is granted automatically; the fallback only matters if a future Android revokes it.
+    if (am.canScheduleExactAlarms()) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, alarm)
+    else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, alarm)
+}
+
+/**
+ * The daily alarm: runs the check (as WorkManager work, since it can take longer than a receiver is allowed)
+ * and arms tomorrow's alarm. Also re-arms after a reboot or app update, which clear alarms.
+ */
+class DailyAlarm : BroadcastReceiver() {
+    override fun onReceive(ctx: Context, intent: Intent) {
+        if (intent.action == null) WorkManager.getInstance(ctx).enqueueUniqueWork("dailyRun", ExistingWorkPolicy.KEEP,
+            OneTimeWorkRequestBuilder<DailyWorker>().setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST).build())
+        scheduleDaily(ctx)
+    }
 }
 
 private const val CHANNEL = "reminders2"
