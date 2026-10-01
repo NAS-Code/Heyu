@@ -44,6 +44,7 @@ fun SetupScreen(contacts: List<ContactStats>) {
             ?: ContactSetting(c.contactId, c.phone, c.name, days))
     }
 
+    val styles = remember { ctx.allStyles() }
     fun setStyle(c: ContactStats, style: Style) = scope.launch {
         dao.save((byId[c.contactId] ?: ContactSetting(c.contactId, c.phone, c.name, null)).copy(style = style.key))
     }
@@ -83,7 +84,7 @@ fun SetupScreen(contacts: List<ContactStats>) {
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     TierPicker(byId[c.contactId]?.frequencyDays) { setDays(c, it) }
-                    StylePicker(styleOf(byId[c.contactId]?.style)) { setStyle(c, it) }
+                    StylePicker(styleOf(byId[c.contactId]?.style, styles), styles) { setStyle(c, it) }
                 }
             }
         }
@@ -100,8 +101,8 @@ private val SMALL_PADDING = PaddingValues(horizontal = 18.dp, vertical = 0.dp)
 private fun SmallLabel(text: String) = Text(text, fontSize = MaterialTheme.typography.labelLarge.fontSize * 0.75f)
 
 @Composable
-private fun StylePicker(style: Style, onPick: (Style) -> Unit) =
-    DropdownButton(Style.entries.map { "${it.label} style" to it }, onPick) { open ->
+private fun StylePicker(style: Style, styles: List<Style>, onPick: (Style) -> Unit) =
+    DropdownButton(styles.map { "${it.label} style" to it }, onPick) { open ->
         OutlinedButton(onClick = open, SMALL_BUTTON, contentPadding = SMALL_PADDING) { SmallLabel("${style.label} style") }
     }
 

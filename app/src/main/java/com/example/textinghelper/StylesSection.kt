@@ -21,8 +21,14 @@ fun TextStyleSettings() {
     val ctx = LocalContext.current
     var contacts by remember { mutableStateOf<List<ContactStats>?>(null) }
     LaunchedEffect(Unit) { contacts = withContext(Dispatchers.IO) { (loadCachedDiagnostic(ctx) ?: readDiagnostic(ctx)).contacts } }
+    var styles by remember { mutableStateOf(ctx.allStyles()) }
+    var tab by remember { mutableIntStateOf(0) }
+    var adding by remember { mutableStateOf(false) }
+    var renaming by remember { mutableStateOf<Style?>(null) }
+    var deleting by remember { mutableStateOf<Style?>(null) }
+    fun reload() { styles = ctx.allStyles() }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(Style.entries.joinToString(" · ") { st -> st.label + if (ctx.loadStyle(st).builtAt != null) " ✓" else " (not built)" },
+        Text(styles.joinToString(" · ") { st -> st.label + if (ctx.loadStyle(st).builtAt != null) " ✓" else " (not built)" },
             style = MaterialTheme.typography.bodySmall)
         run {
             Text("Pick up to $MAX_STYLE_SAMPLES chats per style that show how you text those people. Claude studies up to 250 " +
@@ -30,15 +36,60 @@ fun TextStyleSettings() {
                 style = MaterialTheme.typography.bodySmall)
             Text("Building sends those messages (yours only, no names) to Anthropic once.", style = MaterialTheme.typography.bodySmall)
             val c = contacts
-            // One tab per style, like the app's main tabs.
-            var tab by remember { mutableIntStateOf(0) }
-            PrimaryTabRow(selectedTabIndex = tab) {
-                Style.entries.forEachIndexed { i, st -> Tab(tab == i, onClick = { tab = i }, text = { Text(st.label) }) }
+            // One tab per style, like the app's main tabs; scrolls sideways once custom styles are added.
+            val canAdd = styles.count { it.custom } < MAX_CUSTOM_STYLES
+            PrimaryScrollableTabRow(selectedTabIndex = tab.coerceAtMost(styles.lastIndex), edgePadding = 0.dp) {
+                styles.forEachIndexed { i, st -> Tab(tab == i, onClick = { tab = i }, text = { Text(st.label) }) }
+                if (canAdd) Tab(false, onClick = { adding = true }, text = { Text("+ New") })
             }
-            val st = Style.entries[tab]
-            if (c == null) Text("Loading contacts…") else key(st) { StyleCard(st, c) } // key: each tab keeps its own state
+            val st = styles[tab.coerceAtMost(styles.lastIndex)]
+            if (st.custom) Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Custom style", Modifier.weight(1f), style = MaterialTheme.typography.labelMedium)
+                TextButton(onClick = { renaming = st }) { Text("Rename") }
+                TextButton(onClick = { deleting = st }) { Text("Delete") }
+            }
+            if (c == null) Text("Loading contacts…") else key(st.key) { StyleCard(st, c) } // key: each tab keeps its own state
         }
     }
+    if (adding) StyleNameDialog("New style", "", styles.map { it.label }, { adding = false }) { name ->
+        ctx.addCustomStyle(name); reload(); tab = styles.lastIndex; adding = false
+    }
+    renaming?.let { st ->
+        StyleNameDialog("Rename style", st.label, styles.filter { it.key != st.key }.map { it.label }, { renaming = null }) { name ->
+            ctx.renameCustomStyle(st.key, name); reload(); renaming = null
+        }
+    }
+    deleting?.let { st ->
+        AlertDialog(
+            onDismissRequest = { deleting = null },
+            title = { Text("Delete “${st.label}”?") },
+            text = { Text("Its samples and profile are removed. Anyone using it switches to the Friends style.") },
+            confirmButton = { TextButton(onClick = { ctx.deleteCustomStyle(st.key); reload(); tab = 0; deleting = null }) { Text("Delete") } },
+            dismissButton = { TextButton(onClick = { deleting = null }) { Text("Cancel") } },
+        )
+    }
+}
+
+@Composable
+private fun StyleNameDialog(title: String, initial: String, taken: List<String>, onDismiss: () -> Unit, onSave: (String) -> Unit) {
+    var name by remember { mutableStateOf(initial) }
+    val clean = name.trim()
+    val error = when {
+        clean.isEmpty() -> null
+        taken.any { it.equals(clean, ignoreCase = true) } -> "There's already a style with that name"
+        else -> null
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            OutlinedTextField(name, { name = it.take(20) }, singleLine = true, label = { Text("Name") },
+                placeholder = { Text("e.g. Gym crew, College, Work friends") }, isError = error != null,
+                supportingText = { Text(error ?: "Up to 20 characters") })
+        },
+        confirmButton = { TextButton(enabled = clean.isNotEmpty() && error == null, onClick = { onSave(clean) }) { Text("Save") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
 }
 
 @Composable

@@ -151,7 +151,8 @@ and a "View prompt" button showing exactly what was sent. The recap and button c
 ## Texting styles
 
 In [`Styles.kt`](app/src/main/java/com/example/textinghelper/Styles.kt). Settings → Text Style Settings has a
-tab each for **Friends, Family and Professional**:
+tab each for **Friends, Family and Professional**, plus up to **3 custom styles** you name yourself (**+ New**;
+rename or delete them anytime, and anyone using a deleted style goes back to Friends):
 
 1. Pick up to 5 sample chats per style. They're assigned that style automatically.
 2. Optionally write notes (treated as rules) and a "never use" list.

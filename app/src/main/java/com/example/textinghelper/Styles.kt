@@ -7,11 +7,46 @@ import org.json.JSONObject
 // Texting styles: a baseline voice per kind of relationship, built once from chats you pick and
 // added to every suggestion prompt. The conversation with the person still wins where it differs.
 
-enum class Style(val key: String, val label: String) {
-    FRIENDS("friends", "Friends"), FAMILY("family", "Family"), PROFESSIONAL("professional", "Professional")
+/** A texting style: the three built-ins, plus up to [MAX_CUSTOM_STYLES] the user names themselves. */
+data class Style(val key: String, val label: String) {
+    val custom get() = key.startsWith("custom_")
+
+    companion object {
+        val FRIENDS = Style("friends", "Friends")
+        val FAMILY = Style("family", "Family")
+        val PROFESSIONAL = Style("professional", "Professional")
+        val BUILT_IN = listOf(FRIENDS, FAMILY, PROFESSIONAL)
+    }
 }
 
-fun styleOf(key: String?) = Style.entries.firstOrNull { it.key == key } ?: Style.FRIENDS
+const val MAX_CUSTOM_STYLES = 3
+
+/** Unknown or deleted styles fall back to Friends. Pure, so it's unit tested. */
+fun styleOf(key: String?, all: List<Style> = Style.BUILT_IN) = all.firstOrNull { it.key == key } ?: Style.FRIENDS
+
+fun Context.customStyles(): List<Style> = try {
+    JSONArray(prefs().getString("customStyles", "[]")).let { a ->
+        (0 until a.length()).map { a.getJSONObject(it).let { o -> Style(o.getString("key"), o.getString("label")) } }
+    }
+} catch (e: org.json.JSONException) {
+    emptyList()
+}
+
+fun Context.allStyles() = Style.BUILT_IN + customStyles()
+
+private fun Context.saveCustomStyles(list: List<Style>) = prefs().edit()
+    .putString("customStyles", JSONArray(list.map { JSONObject().put("key", it.key).put("label", it.label) }).toString()).apply()
+
+fun Context.addCustomStyle(label: String) = Style("custom_${System.currentTimeMillis()}", label.trim()).also { saveCustomStyles(customStyles() + it) }
+
+fun Context.renameCustomStyle(key: String, label: String) =
+    saveCustomStyles(customStyles().map { if (it.key == key) it.copy(label = label.trim()) else it })
+
+/** Removes the style and its profile. Contacts still pointing at it fall back to Friends (see styleOf). */
+fun Context.deleteCustomStyle(key: String) {
+    saveCustomStyles(customStyles().filter { it.key != key })
+    prefs().edit().remove("style_$key").apply()
+}
 
 const val MAX_STYLE_SAMPLES = 5 // contacts per style
 private const val MY_MESSAGES_PER_CHAT = 250
@@ -89,7 +124,7 @@ fun styleSection(style: Style, p: StyleProfile): String? {
 
 /** The contact's style profile, falling back to Friends if theirs hasn't been set up. */
 fun Context.styleFor(key: String?): Pair<Style, StyleProfile> {
-    val style = styleOf(key)
+    val style = styleOf(key, allStyles())
     val p = loadStyle(style)
     return if (p.isEmpty && style != Style.FRIENDS) Style.FRIENDS to loadStyle(Style.FRIENDS) else style to p
 }

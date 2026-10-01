@@ -50,5 +50,10 @@ class StyleTest {
     @Test fun unknownStyleIsFriends() {
         assertEquals(Style.FRIENDS, styleOf(null))
         assertEquals(Style.FAMILY, styleOf("family"))
+        val gym = Style("custom_1", "Gym crew")
+        assertEquals(gym, styleOf("custom_1", Style.BUILT_IN + gym))
+        assertEquals(Style.FRIENDS, styleOf("custom_1", Style.BUILT_IN)) // deleted: back to Friends
+        assertEquals(true, gym.custom)
+        assertEquals(false, Style.FAMILY.custom)
     }
 }
