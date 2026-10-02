@@ -82,7 +82,7 @@ All in [`Due.kt`](app/src/main/java/com/example/textinghelper/Due.kt) (pure Kotl
 |---|---|
 | **Due** | Days since *your* last text to them, or since you tapped Done, is at least their cadence, and they aren't snoozed. Texting someone naturally resets their clock. |
 | **Unreplied** (higher priority) | They sent the last message, it's been longer than the **reply wait**, and you haven't tapped Done since. Opted-in contacts only, so verification codes never trigger this. |
-| **Reply wait** | Setting. Default: **half their cadence**, between 1 and 7 days (Weekly 3.5 days; Biweekly and longer 7). Or a fixed 1–14 days for everyone. |
+| **Reply wait** | Setting. Default: **half their cadence**, between 1 and 7 days (Weekly 3.5 days; Biweekly and longer 7). Or a fixed 1–14 days for everyone. Can be turned off: then there are no reply reminders and everyone follows their cadence, counted from your last text. |
 | **Recent incoming** | If they texted you within the reply wait, no reminder at all, not even a due one; you already know about them. |
 | **Order** | Unreplied first (longest waiting first), then due (most days past their cadence first), then the daily cap. |
 | **Repeats** | Anyone still due is reminded at every daily check until you text them, snooze them, or tap Done. |

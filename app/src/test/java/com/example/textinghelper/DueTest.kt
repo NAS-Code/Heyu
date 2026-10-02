@@ -16,8 +16,8 @@ class DueTest {
 
     // Most tests use a fixed 2-day reply wait (the original rule); replyWaitScalesWithCadence covers the default.
     private fun names(settings: List<ContactSetting>, vararg st: ContactStats, vary: Boolean = false, rotate: Boolean = false,
-                      replyDays: Int? = 2) =
-        findDue(settings, st.associateBy { it.contactId }, now, vary, rotate, replyDays).map { it.setting.name }
+                      replyDays: Int? = 2, replyOn: Boolean = true) =
+        findDue(settings, st.associateBy { it.contactId }, now, vary, rotate, replyDays, replyOn).map { it.setting.name }
 
     @Test fun dueWhenPastFrequency() {
         assertEquals(listOf("P1"), names(listOf(setting(1, 7)), stats(1, 7, 7, true)))
@@ -135,5 +135,15 @@ class DueTest {
         assertEquals(listOf("P1"), names(s, stats(1, 10, 3, false), replyDays = 2))
         // Weekly friend texted 4 days ago: past 3.5 days, so reminded.
         assertEquals(listOf("P1"), names(listOf(setting(1, 7)), stats(1, 10, 4, false), replyDays = null))
+    }
+
+    @Test fun replyRemindersOffMeansCadenceOnly() {
+        val s = listOf(setting(1, 7))
+        // They texted 5 days ago, my last text 6 days ago: a reply reminder when on, nothing when off (6 < 7).
+        assertEquals(listOf("P1"), names(s, stats(1, 6, 5, false)))
+        assertEquals(emptyList<String>(), names(s, stats(1, 6, 5, false), replyOn = false))
+        // Off, and my last text was 8 days ago: due by cadence even though they texted yesterday.
+        val r = findDue(s, mapOf(1L to stats(1, 8, 1, false)), now, replyReminders = false)
+        assertEquals(listOf(false), r.map { it.unreplied })
     }
 }

@@ -20,6 +20,7 @@ fun findDue(
     vary: Boolean = false, // apply each person's jitterDays (the "vary timing" setting)
     rotate: Boolean = false, // within each group, least recently reminded first, so the daily cap takes turns
     fixedReplyDays: Int? = null, // reply-reminder wait for everyone; null = half their cadence (see replyWait)
+    replyReminders: Boolean = true, // off: no "reply to them" reminders, everyone just follows their cadence
 ): List<Reminder> {
     val unreplied = ArrayList<Pair<Reminder, Long>>() // sort key: when they texted (oldest first)
     val due = ArrayList<Pair<Reminder, Long>>() // sort key: days past their frequency (biggest first)
@@ -32,7 +33,7 @@ fun findDue(
         val lastOut = lastOut(s, st) // 0 = never
 
         // They sent the last message and I haven't replied (or tapped Done since).
-        val theirText = st?.takeIf { !it.lastFromMe && it.lastDate > handled }?.lastDate
+        val theirText = st?.takeIf { replyReminders && !it.lastFromMe && it.lastDate > handled }?.lastDate
         if (theirText != null) {
             val waiting = now - theirText
             // Inside the reply wait: give me time to reply; don't nag with a "due" reminder either.
