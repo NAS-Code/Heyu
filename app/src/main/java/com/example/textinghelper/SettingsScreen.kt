@@ -69,6 +69,25 @@ fun SettingsScreen() {
                     else "The most overdue people every day, even if it's the same ones.", style = MaterialTheme.typography.bodySmall)
                 Text("Unreplied messages always come before regular check-ins.", style = MaterialTheme.typography.bodySmall)
             }
+            var replyFixed by remember { mutableStateOf(ctx.prefs().getBoolean("replyFixed", false)) }
+            var replyDays by remember { mutableIntStateOf(ctx.prefs().getInt("replyDays", 2)) }
+            Column {
+                Text("When someone texts you, remind me to reply after")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    fun pick(v: Boolean) { replyFixed = v; ctx.prefs().edit().putBoolean("replyFixed", v).apply() }
+                    FilterChip(!replyFixed, onClick = { pick(false) }, label = { Text("Half their cadence") })
+                    FilterChip(replyFixed, onClick = { pick(true) }, label = { Text("Fixed") })
+                }
+                if (replyFixed) Row(verticalAlignment = Alignment.CenterVertically) {
+                    fun setDays(n: Int) { replyDays = n.coerceIn(1, 14); ctx.prefs().edit().putInt("replyDays", replyDays).apply() }
+                    Text("$replyDays ${if (replyDays == 1) "day" else "days"} for everyone", Modifier.weight(1f))
+                    TextButton(onClick = { setDays(replyDays - 1) }) { Text("−") }
+                    TextButton(onClick = { setDays(replyDays + 1) }) { Text("+") }
+                }
+                Text(if (replyFixed) "Until then, they get no reminder at all, since they just texted you."
+                    else "Weekly: 3.5 days · Biweekly, Monthly, Quarterly: 7 days · always between 1 and 7 days.",
+                    style = MaterialTheme.typography.bodySmall)
+            }
             var vary by remember { mutableStateOf(ctx.varyTiming) }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {

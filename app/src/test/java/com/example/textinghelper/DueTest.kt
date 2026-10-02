@@ -14,8 +14,10 @@ class DueTest {
         ContactStats(id, "P$id", "+1555000$id", 10, 10, now - lastDaysAgo * DAY,
             lastOutDaysAgo?.let { now - it * DAY }, lastFromMe)
 
-    private fun names(settings: List<ContactSetting>, vararg st: ContactStats, vary: Boolean = false, rotate: Boolean = false) =
-        findDue(settings, st.associateBy { it.contactId }, now, vary, rotate).map { it.setting.name }
+    // Most tests use a fixed 2-day reply wait (the original rule); replyWaitScalesWithCadence covers the default.
+    private fun names(settings: List<ContactSetting>, vararg st: ContactStats, vary: Boolean = false, rotate: Boolean = false,
+                      replyDays: Int? = 2) =
+        findDue(settings, st.associateBy { it.contactId }, now, vary, rotate, replyDays).map { it.setting.name }
 
     @Test fun dueWhenPastFrequency() {
         assertEquals(listOf("P1"), names(listOf(setting(1, 7)), stats(1, 7, 7, true)))
@@ -119,5 +121,19 @@ class DueTest {
         // Unreplied still beats due when rotating, even if reminded more recently.
         val u = listOf(setting(1, 7), setting(5, 7, reminded = now - DAY))
         assertEquals(listOf("P5", "P1"), names(u, stats(1, 30, 30, true), stats(5, 1, 3, false), rotate = true))
+    }
+
+    @Test fun replyWaitScalesWithCadence() {
+        assertEquals(DAY * 7 / 2, replyWait(7, null))   // Weekly: 3.5 days
+        assertEquals(7 * DAY, replyWait(14, null))      // Biweekly: 7
+        assertEquals(7 * DAY, replyWait(90, null))      // Quarterly: capped at 7
+        assertEquals(DAY, replyWait(1, null))           // floor of 1 day
+        assertEquals(2 * DAY, replyWait(90, 2))         // fixed overrides
+        // Quarterly friend texted 3 days ago: not yet with the default (7 days), yes with a fixed 2.
+        val s = listOf(setting(1, 90))
+        assertEquals(emptyList<String>(), names(s, stats(1, 10, 3, false), replyDays = null))
+        assertEquals(listOf("P1"), names(s, stats(1, 10, 3, false), replyDays = 2))
+        // Weekly friend texted 4 days ago: past 3.5 days, so reminded.
+        assertEquals(listOf("P1"), names(listOf(setting(1, 7)), stats(1, 10, 4, false), replyDays = null))
     }
 }

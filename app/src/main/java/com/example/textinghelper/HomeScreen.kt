@@ -33,7 +33,7 @@ fun HomeScreen(contacts: List<ContactStats>, onRefresh: () -> Unit) {
     val stats = remember(contacts) { contacts.associateBy { it.contactId } }
     val now = System.currentTimeMillis()
     val vary = ctx.varyTiming
-    val due = findDue(settings, stats, now, vary = vary, rotate = ctx.rotateReminders)
+    val due = findDue(settings, stats, now, vary = vary, rotate = ctx.rotateReminders, fixedReplyDays = ctx.fixedReplyDays)
     val soon = upcoming(settings, stats, now, vary).take(10)
     val names = settings.associate { it.contactId to it.name }
 

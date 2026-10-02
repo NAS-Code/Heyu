@@ -19,6 +19,7 @@ fun findDue(
     now: Long,
     vary: Boolean = false, // apply each person's jitterDays (the "vary timing" setting)
     rotate: Boolean = false, // within each group, least recently reminded first, so the daily cap takes turns
+    fixedReplyDays: Int? = null, // reply-reminder wait for everyone; null = half their cadence (see replyWait)
 ): List<Reminder> {
     val unreplied = ArrayList<Pair<Reminder, Long>>() // sort key: when they texted (oldest first)
     val due = ArrayList<Pair<Reminder, Long>>() // sort key: days past their frequency (biggest first)
@@ -34,8 +35,8 @@ fun findDue(
         val theirText = st?.takeIf { !it.lastFromMe && it.lastDate > handled }?.lastDate
         if (theirText != null) {
             val waiting = now - theirText
-            // Under 2 days: give me time to reply; don't nag with a "due" reminder either.
-            if (waiting > 2 * DAY)
+            // Inside the reply wait: give me time to reply; don't nag with a "due" reminder either.
+            if (waiting > replyWait(freq, fixedReplyDays))
                 unreplied += Reminder(s, true, waiting / DAY) to theirText
             continue
         }
@@ -51,6 +52,12 @@ fun findDue(
         sortedWith(if (rotate) compareBy<Pair<Reminder, Long>> { it.first.setting.lastReminded ?: 0L }.then(normal) else normal).map { it.first }
     return unreplied.ordered(compareBy { it.second }) + due.ordered(compareByDescending { it.second })
 }
+
+/**
+ * How long someone can wait on my reply before a reminder: [fixedDays] if set, otherwise half their cadence,
+ * kept between 1 and 7 days (Weekly 3.5 days; Biweekly and longer 7). Pure, so it's unit tested.
+ */
+fun replyWait(freq: Int, fixedDays: Int?): Long = fixedDays?.let { it * DAY } ?: (freq * DAY / 2).coerceIn(DAY, 7 * DAY)
 
 data class Upcoming(val setting: ContactSetting, val inDays: Long)
 
