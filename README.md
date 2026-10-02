@@ -141,8 +141,8 @@ something says it was cancelled.
 Bans come from the "Never use" field and from notes like `don't use "yo"`.
 
 **Laughter** ("lol", "haha", 😂) is treated as a reaction, not a style tic: the prompt allows it only in reply to
-something funny or in a joke, and if you sent the last message (so there's nothing of theirs to laugh at), a
-leading "Hahaha"/"lol" is stripped in code. Style builds are given the real share of your messages that contain a
+something funny or in a joke, and a leading "Hahaha"/"lol" is always stripped in code (suggestions go out hours or
+days after their text, so an opening laugh never reads as a real reaction). Style builds are given the real share of your messages that contain a
 laugh, so the description can't claim you laugh "constantly".
 
 The notification shows the first suggestion. Tapping it opens a screen with all of them, Claude's recap,
